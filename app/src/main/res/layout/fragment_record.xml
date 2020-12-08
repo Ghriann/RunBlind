@@ -12,8 +12,9 @@
         android:id="@+id/name_input"
 
         android:layout_marginHorizontal="60dp"
-        android:layout_marginTop="150dp"
-        android:layout_alignParentTop="true"
+        android:layout_marginBottom="50dp"
+
+        android:layout_above="@id/radio_group"
 
         android:hint="Enter circuit name ..."/>
 
@@ -22,9 +23,9 @@
         android:layout_height="wrap_content"
         android:id="@+id/radio_group"
 
-        android:layout_below="@id/name_input"
+        android:layout_above="@id/button_view"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="50dp"
+        android:layout_marginBottom="30dp"
 
         android:checkedButton="@id/radio_closed">
 
@@ -42,15 +43,34 @@
 
     </RadioGroup>
 
-    <Button
+    <FrameLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/record_button"
-
-        android:layout_below="@id/radio_group"
+        android:id="@+id/button_view"
+        android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="50dp"
+        android:layout_marginBottom="80dp">
 
-        android:text="RECORD"/>
+        <ImageButton
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:id="@+id/button"
+            android:layout_gravity="center"
+            android:backgroundTint="@color/buttonColor"
+            android:src="@drawable/ic_baseline_play_arrow"
+            android:scaleType="fitCenter"/>
+
+        <ProgressBar
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:id="@+id/loading"
+
+            android:visibility="gone"
+            android:layout_gravity="center"
+            android:elevation="10dp"
+            android:indeterminate="true"/>
+
+
+    </FrameLayout>
 
 </RelativeLayout>

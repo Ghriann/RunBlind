@@ -5,6 +5,7 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.SortedList
 import com.mightylama.runblind.databinding.CircuitListHolderBinding
@@ -30,10 +31,7 @@ class CircuitListFragment(private val circuitList : ArrayList<String>) : Fragmen
     ): View? {
         binding = FragmentCircuitListBinding.inflate(layoutInflater)
 
-        binding.recyclerView.apply {
-            layoutManager = LinearLayoutManager(context)
-            adapter = CircuitListAdapter(circuitList)
-        }
+        context?.let { binding.spinner.adapter = ArrayAdapter<String>(it, android.R.layout.simple_spinner_item, circuitList).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) } }
 
         // Inflate the layout for this fragment
         return binding.root
