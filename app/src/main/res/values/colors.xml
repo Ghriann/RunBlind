@@ -5,4 +5,9 @@
     <color name="colorAccent">#03DAC5</color>
 
     <color name="buttonColor">#D0D0D0</color>
+
+    <color name="dotColorUndefined">#FF9900</color>
+    <color name="dotColorConnected">#55EC5C</color>
+    <color name="dotColorDisconnected">#FF1400</color>
+
 </resources>

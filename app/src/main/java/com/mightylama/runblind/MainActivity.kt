@@ -1,10 +1,14 @@
 package com.mightylama.runblind
 
+import android.content.Context
 import android.content.DialogInterface
+import android.content.res.ColorStateList
+import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
@@ -13,31 +17,41 @@ import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.textfield.TextInputEditText
 import com.mightylama.runblind.databinding.ActivityMainBinding
+import io.ktor.client.HttpClient
+import io.ktor.client.features.ConnectTimeoutException
+import io.ktor.client.features.get
+import io.ktor.client.request.get
+import io.ktor.network.sockets.ConnectTimeoutException
+import io.ktor.util.network.UnresolvedAddressException
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.lang.Exception
+import java.net.ConnectException
 import java.util.stream.Collectors.toList
 
 class MainActivity : FragmentActivity() {
 
+    public val KEY_IP = "key_ip"
+
     private lateinit var binding: ActivityMainBinding
     private val circuitList = ArrayList<String>()
+
+    private var baseUrl: String? = null
+    private val httpClient = HttpClient()
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val pingRunnable = object : Runnable {
         override fun run() {
-            runBlocking {
-                launch { getOrientation() }
+            baseUrl?.let {
+                GlobalScope.launch {
+                    getSpatialData()
+                }
             }
             mainHandler.postDelayed(this, 1000)
         }
     }
-
-    var a = 1
-    var b = 2
-    var c = 3
-
-    private lateinit var ip: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,7 +68,6 @@ class MainActivity : FragmentActivity() {
         }.attach()
 
         populateDummyCircuits()
-
         showIpDialog()
     }
 
@@ -73,14 +86,37 @@ class MainActivity : FragmentActivity() {
     }
 
 
-    private suspend fun getOrientation()
+    private suspend fun getSpatialData()
     {
-        delay(50)
-        updateOrientation(a.toFloat(), b.toFloat(), c.toFloat(), a.toFloat(), b.toFloat(), c.toFloat())
-        a++
-        b++
-        c++
+        try {
+            val response = httpClient.get<String>(baseUrl + "get_spatial_data")
+
+            runOnUiThread {
+                onServerConnected()
+                Toast.makeText(this, response, Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        catch (exception: Exception) {
+            onServerDisconnected()
+            when (exception) {
+                is UnresolvedAddressException -> runOnUiThread { Toast.makeText(this, "Please enter a valid IP", Toast.LENGTH_SHORT).show() }
+                is ConnectTimeoutException ->  runOnUiThread { Toast.makeText(this, "Server timeout", Toast.LENGTH_SHORT).show() }
+            }
+        }
     }
+
+    private fun onServerDisconnected()
+    {
+        binding.dot.imageTintList = getColorStateList(R.color.dotColorDisconnected)
+    }
+
+    private fun onServerConnected()
+    {
+        binding.dot.imageTintList = getColorStateList(R.color.dotColorConnected)
+    }
+
+
 
     class MainFragmentStateAdapter(var mainActivity: MainActivity): FragmentStateAdapter(mainActivity) {
         override fun getItemCount(): Int {
@@ -109,13 +145,16 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun showIpDialog() {
-        var editText = TextInputEditText(this)
+        val editText = TextInputEditText(this)
+        editText.setText(getPreferences(Context.MODE_PRIVATE).getString(KEY_IP, ""), TextView.BufferType.EDITABLE)
         AlertDialog.Builder(this)
             .setMessage("Please enter server IP")
             .setView(editText)
             .setCancelable(false)
             .setPositiveButton("OK") { _: DialogInterface, _: Int ->
-                Toast.makeText(this, editText.text, Toast.LENGTH_SHORT).show()
+                val address = editText.text.toString()
+                baseUrl = "http://$address:5000/"
+                getPreferences(Context.MODE_PRIVATE).edit().putString(KEY_IP, address).apply()
             }
             .create()
             .show()
