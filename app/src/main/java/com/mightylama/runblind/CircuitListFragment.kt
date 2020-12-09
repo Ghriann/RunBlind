@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  * A simple [Fragment] subclass.
  */
 
-class CircuitListFragment(val callback: CircuitListCallback, private val circuitList : ArrayList<String>)
+class CircuitListFragment(private val callback: CircuitListCallback, private val circuitList : ArrayList<String>)
     : Fragment() {
 
     private lateinit var binding: FragmentCircuitListBinding
@@ -54,6 +54,7 @@ class CircuitListFragment(val callback: CircuitListCallback, private val circuit
         }
 
         binding.button.setOnClickListener(startCircuitListener)
+        onCircuitWaiting()
 
         // Inflate the layout for this fragment
         return binding.root
@@ -76,7 +77,7 @@ class CircuitListFragment(val callback: CircuitListCallback, private val circuit
 
     fun onCircuitStopped() {
         binding.apply{
-            spinner.isClickable = true
+            spinner.isEnabled = true
             loading.visibility = View.GONE
             button.apply {
                 isClickable = true
@@ -89,7 +90,7 @@ class CircuitListFragment(val callback: CircuitListCallback, private val circuit
     fun onCircuitWaiting() {
 
         binding.apply {
-            spinner.isClickable = false
+            spinner.isEnabled = false
             loading.visibility = View.VISIBLE
             binding.button.apply {
                 isClickable = false

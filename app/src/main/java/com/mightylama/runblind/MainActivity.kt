@@ -5,6 +5,7 @@ import android.content.DialogInterface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -22,15 +23,19 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.lang.Exception
+import java.lang.ref.WeakReference
 
 class MainActivity
-    : FragmentActivity(), CircuitListFragment.CircuitListCallback {
+    : FragmentActivity(),
+    CircuitListFragment.CircuitListCallback, RecordFragment.RecordFragmentCallback, CompassFragment.CompassFragmentCallback {
 
     private val KEY_IP = "key_ip"
 
     private lateinit var binding: ActivityMainBinding
     private val circuitList = ArrayList<String>()
     private var circuitListFragment: CircuitListFragment? = null
+    private var recordFragment: RecordFragment? = null
+    private var compassFragment: CompassFragment? = null
 
     private var baseUrl: String? = null
     private val httpClient = HttpClient()
@@ -60,6 +65,18 @@ class MainActivity
             }
         }.attach()
 
+        binding.volumeSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {}
+
+            override fun onStartTrackingTouch(p0: SeekBar?) {}
+
+            override fun onStopTrackingTouch(p0: SeekBar?) {
+                p0?.let {
+                    GlobalScope.launch { setVolume(it.progress) }
+                }
+            }
+        })
+
         showIpDialog()
     }
 
@@ -71,6 +88,21 @@ class MainActivity
     override fun onResume() {
         super.onResume()
         mainHandler.post(pingRunnable)
+    }
+
+    class MainFragmentStateAdapter(private var mainActivity: MainActivity): FragmentStateAdapter(mainActivity) {
+        override fun getItemCount(): Int {
+            return 3
+        }
+
+        override fun createFragment(position: Int): Fragment {
+            return when (position) {
+                0 -> CircuitListFragment(mainActivity, mainActivity.circuitList).also { mainActivity.circuitListFragment = it }
+                1 -> RecordFragment(mainActivity).also { mainActivity.recordFragment = it }
+                2 -> CompassFragment(mainActivity).also { mainActivity.compassFragment = it }
+                else -> Fragment()
+            }
+        }
     }
 
     private fun populateDummyCircuits() {
@@ -87,7 +119,9 @@ class MainActivity
                 if (serverState != ServerState.Connected)
                     onServerConnected()
 
-                updateOrientation(response)
+                response.split(",")
+                    .also { updateOrientation(it.subList(0, 6)) }
+                    //TODO .also { it.last() ... }
             }
         }
 
@@ -98,7 +132,7 @@ class MainActivity
 
                 when (exception) {
                     is UnresolvedAddressException -> Toast.makeText(this, "Please enter a valid IP", Toast.LENGTH_SHORT).show()
-                    is ConnectTimeoutException -> Toast.makeText(this, "Server timeout", Toast.LENGTH_SHORT).show()
+                    is ConnectTimeoutException -> "" //TODO eventually
                 }
             }
         }
@@ -108,7 +142,15 @@ class MainActivity
     {
         serverState = ServerState.Disconnected
         binding.dot.imageTintList = getColorStateList(R.color.dotColorDisconnected)
+        onWaiting()
+    }
+
+    private fun onWaiting()
+    {
         circuitListFragment?.onCircuitWaiting()
+        recordFragment?.onRecordWaiting()
+        compassFragment?.onCompassWaiting()
+        binding.volumeSlider.isEnabled = false
     }
 
     private fun onServerConnected()
@@ -116,67 +158,91 @@ class MainActivity
         serverState = ServerState.Connected
         binding.dot.imageTintList = getColorStateList(R.color.dotColorConnected)
         circuitListFragment?.onCircuitStopped()
+        recordFragment?.onRecordStopped()
 
-        GlobalScope.launch { getCircuitList() }
+        GlobalScope.launch {
+            getVolume()
+            getCircuitList()
+        }
+    }
+
+
+    private suspend fun getCircuitList() {
+        val serializedList = getFromServer("get_circuit_list")
+        runOnUiThread { updateCircuitList(serializedList) }
+    }
+
+    private suspend fun getVolume(){
+        val volume = getFromServer("get_volume").toInt()
+        runOnUiThread { updateVolume(volume) }
+    }
+
+    private suspend fun setVolume(volume: Int){
+        getFromServer("set_volume/$volume")
     }
 
     override suspend fun startCircuit(circuitIndex: Int) {
-        try {
-            httpClient.get<String>(baseUrl + "start_circuit/" + circuitIndex)
-            runOnUiThread { circuitListFragment?.onCircuitStarted() }
-        }
-        catch (exception: Exception) {
-            runOnUiThread { Toast.makeText(this, exception.toString(), Toast.LENGTH_SHORT).show() }
-        }
+        getFromServer("start_circuit/$circuitIndex")
+        runOnUiThread { circuitListFragment?.onCircuitStarted() }
     }
 
     override suspend fun stopCircuit() {
-        try {
-            httpClient.get<String>(baseUrl + "stop_circuit")
-            runOnUiThread { circuitListFragment?.onCircuitStopped() }
-        }
-        catch (exception: Exception) {
+        getFromServer("stop_circuit")
+        runOnUiThread { circuitListFragment?.onCircuitStopped() }
+    }
+
+    override suspend fun startRecording(namePath: String) {
+        getFromServer("start_recording/$namePath")
+        runOnUiThread { recordFragment?.onRecordStarted() }
+    }
+
+    override suspend fun stopRecording() {
+        getFromServer("stop_recording")
+        runOnUiThread { recordFragment?.onRecordStopped() }
+    }
+
+    override suspend fun startCompass() {
+        getFromServer("start_compass")
+        runOnUiThread { compassFragment?.onRecordStarted() }
+    }
+
+    override suspend fun stopCompass() {
+        getFromServer("stop_compass")
+        runOnUiThread { compassFragment?.onRecordStopped() }
+    }
+
+
+    private suspend fun getFromServer(path: String) : String{
+        return try {
+            httpClient.get(baseUrl + path)
+        } catch (exception: Exception) {
             runOnUiThread { Toast.makeText(this, exception.toString(), Toast.LENGTH_SHORT).show() }
+            ""
         }
     }
 
-    class MainFragmentStateAdapter(var mainActivity: MainActivity): FragmentStateAdapter(mainActivity) {
-        override fun getItemCount(): Int {
-            return 3
-        }
 
-        override fun createFragment(position: Int): Fragment {
-            return when (position) {
-                0 -> CircuitListFragment(mainActivity, mainActivity.circuitList).also { mainActivity.circuitListFragment = it }
-                1 -> RecordFragment()
-                2 -> CompassFragment()
-                else -> Fragment()
-            }
+    private fun updateOrientation(spatialDataList: List<String>) {
+        binding.apply {
+            yawCount.text = spatialDataList[0]
+            pitchCount.text = spatialDataList[1]
+            rollCount.text = spatialDataList[2]
+            latCount.text = spatialDataList[3]
+            lonCount.text = spatialDataList[4]
+            heightCount.text = spatialDataList[5]
         }
     }
 
     private fun updateOrientation(serializedSpatialData: String) {
-
-        val spatialDataList = serializedSpatialData.split(",")
-        if (spatialDataList.size == 6)
-            binding.apply {
-                yawCount.text = spatialDataList[0]
-                pitchCount.text = spatialDataList[1]
-                rollCount.text = spatialDataList[2]
-                latCount.text = spatialDataList[3]
-                lonCount.text = spatialDataList[4]
-                heightCount.text = spatialDataList[5]
-            }
+         updateOrientation(serializedSpatialData.split(","))
     }
 
-    private suspend fun getCircuitList() {
-        try {
-            val response = httpClient.get<String>(baseUrl + "get_circuit_list")
-            runOnUiThread { updateCircuitList(response) }
+    private fun updateVolume(volume: Int) {
+        binding.volumeSlider.apply {
+            progress = volume
+            isEnabled = true
         }
-        catch (exception: Exception) {
-            Toast.makeText(this, exception.toString(), Toast.LENGTH_SHORT).show()
-        }
+
     }
 
     private fun updateCircuitList(serializedNameList: String) {

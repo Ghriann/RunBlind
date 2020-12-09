@@ -40,8 +40,6 @@
             android:layout_gravity="center"
             android:elevation="10dp"
             android:indeterminate="true"/>
-
-
     </FrameLayout>
 
 </RelativeLayout>
