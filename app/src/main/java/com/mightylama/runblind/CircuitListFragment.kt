@@ -10,6 +10,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.SortedList
 import com.mightylama.runblind.databinding.CircuitListHolderBinding
 import com.mightylama.runblind.databinding.FragmentCircuitListBinding
+import kotlinx.android.synthetic.main.fragment_record.view.*
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
 
@@ -17,12 +20,25 @@ import com.mightylama.runblind.databinding.FragmentCircuitListBinding
  * A simple [Fragment] subclass.
  */
 
-class CircuitListFragment(private val circuitList : ArrayList<String>) : Fragment() {
+class CircuitListFragment(val callback: CircuitListCallback, private val circuitList : ArrayList<String>)
+    : Fragment() {
 
     private lateinit var binding: FragmentCircuitListBinding
+    private lateinit var adapter: ArrayAdapter<String>
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    interface CircuitListCallback {
+        suspend fun startCircuit(circuitIndex: Int)
+        suspend fun stopCircuit()
+    }
+
+    private val startCircuitListener : View.OnClickListener = View.OnClickListener {
+        onCircuitWaiting()
+        GlobalScope.launch { callback.startCircuit(binding.spinner.selectedItemPosition) }
+    }
+
+    private val stopCircuitListener : View.OnClickListener = View.OnClickListener {
+        onCircuitWaiting()
+        GlobalScope.launch { callback.stopCircuit() }
     }
 
     override fun onCreateView(
@@ -31,9 +47,54 @@ class CircuitListFragment(private val circuitList : ArrayList<String>) : Fragmen
     ): View? {
         binding = FragmentCircuitListBinding.inflate(layoutInflater)
 
-        context?.let { binding.spinner.adapter = ArrayAdapter<String>(it, android.R.layout.simple_spinner_item, circuitList).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) } }
+        context?.let {
+            adapter = ArrayAdapter<String>(it, android.R.layout.simple_spinner_item, circuitList)
+                .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            binding.spinner.adapter = adapter
+        }
+
+        binding.button.setOnClickListener(startCircuitListener)
 
         // Inflate the layout for this fragment
         return binding.root
+    }
+
+    fun notifyDataChanged() {
+        adapter.notifyDataSetChanged()
+    }
+
+    fun onCircuitStarted() {
+        binding.apply {
+            loading.visibility = View.GONE
+            button.apply {
+                isClickable = true
+                setImageResource(R.drawable.ic_baseline_stop)
+                setOnClickListener(stopCircuitListener)
+            }
+        }
+    }
+
+    fun onCircuitStopped() {
+        binding.apply{
+            spinner.isClickable = true
+            loading.visibility = View.GONE
+            button.apply {
+                isClickable = true
+                setImageResource(R.drawable.ic_baseline_play_arrow)
+                setOnClickListener(startCircuitListener)
+            }
+        }
+    }
+
+    fun onCircuitWaiting() {
+
+        binding.apply {
+            spinner.isClickable = false
+            loading.visibility = View.VISIBLE
+            binding.button.apply {
+                isClickable = false
+                setImageResource(0)
+            }
+        }
     }
 }

@@ -2,9 +2,6 @@ package com.mightylama.runblind
 
 import android.content.Context
 import android.content.DialogInterface
-import android.content.res.ColorStateList
-import android.graphics.Color
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -18,36 +15,32 @@ import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.textfield.TextInputEditText
 import com.mightylama.runblind.databinding.ActivityMainBinding
 import io.ktor.client.HttpClient
-import io.ktor.client.features.ConnectTimeoutException
-import io.ktor.client.features.get
 import io.ktor.client.request.get
 import io.ktor.network.sockets.ConnectTimeoutException
 import io.ktor.util.network.UnresolvedAddressException
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import java.lang.Exception
-import java.net.ConnectException
-import java.util.stream.Collectors.toList
 
-class MainActivity : FragmentActivity() {
+class MainActivity
+    : FragmentActivity(), CircuitListFragment.CircuitListCallback {
 
-    public val KEY_IP = "key_ip"
+    private val KEY_IP = "key_ip"
 
     private lateinit var binding: ActivityMainBinding
     private val circuitList = ArrayList<String>()
+    private var circuitListFragment: CircuitListFragment? = null
 
     private var baseUrl: String? = null
     private val httpClient = HttpClient()
+    private var serverState = ServerState.Undefined
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val pingRunnable = object : Runnable {
         override fun run() {
             baseUrl?.let {
-                GlobalScope.launch {
-                    getSpatialData()
-                }
+                GlobalScope.launch { getSpatialData() }
             }
             mainHandler.postDelayed(this, 1000)
         }
@@ -67,7 +60,6 @@ class MainActivity : FragmentActivity() {
             }
         }.attach()
 
-        populateDummyCircuits()
         showIpDialog()
     }
 
@@ -82,7 +74,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun populateDummyCircuits() {
-        circuitList.addAll(listOf("Circuit 1", "Circuit 2", "Circuit 3"))
+        updateCircuitList(listOf("Circuit 1", "Circuit 2", "Circuit 3"))
     }
 
 
@@ -92,31 +84,61 @@ class MainActivity : FragmentActivity() {
             val response = httpClient.get<String>(baseUrl + "get_spatial_data")
 
             runOnUiThread {
-                onServerConnected()
-                Toast.makeText(this, response, Toast.LENGTH_SHORT).show()
+                if (serverState != ServerState.Connected)
+                    onServerConnected()
+
+                updateOrientation(response)
             }
         }
 
         catch (exception: Exception) {
-            onServerDisconnected()
-            when (exception) {
-                is UnresolvedAddressException -> runOnUiThread { Toast.makeText(this, "Please enter a valid IP", Toast.LENGTH_SHORT).show() }
-                is ConnectTimeoutException ->  runOnUiThread { Toast.makeText(this, "Server timeout", Toast.LENGTH_SHORT).show() }
+            runOnUiThread {
+                if (serverState != ServerState.Disconnected)
+                    onServerDisconnected()
+
+                when (exception) {
+                    is UnresolvedAddressException -> Toast.makeText(this, "Please enter a valid IP", Toast.LENGTH_SHORT).show()
+                    is ConnectTimeoutException -> Toast.makeText(this, "Server timeout", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
 
     private fun onServerDisconnected()
     {
+        serverState = ServerState.Disconnected
         binding.dot.imageTintList = getColorStateList(R.color.dotColorDisconnected)
+        circuitListFragment?.onCircuitWaiting()
     }
 
     private fun onServerConnected()
     {
+        serverState = ServerState.Connected
         binding.dot.imageTintList = getColorStateList(R.color.dotColorConnected)
+        circuitListFragment?.onCircuitStopped()
+
+        GlobalScope.launch { getCircuitList() }
     }
 
+    override suspend fun startCircuit(circuitIndex: Int) {
+        try {
+            httpClient.get<String>(baseUrl + "start_circuit/" + circuitIndex)
+            runOnUiThread { circuitListFragment?.onCircuitStarted() }
+        }
+        catch (exception: Exception) {
+            runOnUiThread { Toast.makeText(this, exception.toString(), Toast.LENGTH_SHORT).show() }
+        }
+    }
 
+    override suspend fun stopCircuit() {
+        try {
+            httpClient.get<String>(baseUrl + "stop_circuit")
+            runOnUiThread { circuitListFragment?.onCircuitStopped() }
+        }
+        catch (exception: Exception) {
+            runOnUiThread { Toast.makeText(this, exception.toString(), Toast.LENGTH_SHORT).show() }
+        }
+    }
 
     class MainFragmentStateAdapter(var mainActivity: MainActivity): FragmentStateAdapter(mainActivity) {
         override fun getItemCount(): Int {
@@ -125,7 +147,7 @@ class MainActivity : FragmentActivity() {
 
         override fun createFragment(position: Int): Fragment {
             return when (position) {
-                0 -> CircuitListFragment(mainActivity.circuitList)
+                0 -> CircuitListFragment(mainActivity, mainActivity.circuitList).also { mainActivity.circuitListFragment = it }
                 1 -> RecordFragment()
                 2 -> CompassFragment()
                 else -> Fragment()
@@ -133,15 +155,40 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    private fun updateOrientation(yaw: Float, pitch: Float, roll: Float, lat: Float, lon: Float, height: Float) {
-        binding.apply {
-            yawCount.text = yaw.toString()
-            pitchCount.text = pitch.toString()
-            rollCount.text = roll.toString()
-            latCount.text = lat.toString()
-            lonCount.text = lon.toString()
-            heightCount.text = height.toString()
+    private fun updateOrientation(serializedSpatialData: String) {
+
+        val spatialDataList = serializedSpatialData.split(",")
+        if (spatialDataList.size == 6)
+            binding.apply {
+                yawCount.text = spatialDataList[0]
+                pitchCount.text = spatialDataList[1]
+                rollCount.text = spatialDataList[2]
+                latCount.text = spatialDataList[3]
+                lonCount.text = spatialDataList[4]
+                heightCount.text = spatialDataList[5]
+            }
+    }
+
+    private suspend fun getCircuitList() {
+        try {
+            val response = httpClient.get<String>(baseUrl + "get_circuit_list")
+            runOnUiThread { updateCircuitList(response) }
         }
+        catch (exception: Exception) {
+            Toast.makeText(this, exception.toString(), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun updateCircuitList(serializedNameList: String) {
+        updateCircuitList(serializedNameList.split(","))
+    }
+
+    private fun updateCircuitList(nameList: List<String>) {
+        circuitList.apply {
+            clear()
+            addAll(nameList)
+        }
+        runOnUiThread { circuitListFragment?.notifyDataChanged() }
     }
 
     private fun showIpDialog() {
@@ -158,5 +205,9 @@ class MainActivity : FragmentActivity() {
             }
             .create()
             .show()
+    }
+
+    private enum class ServerState{
+        Connected, Disconnected, Undefined
     }
 }
