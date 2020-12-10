@@ -2,6 +2,7 @@ package com.mightylama.runblind
 
 import android.content.Context
 import android.content.DialogInterface
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -76,6 +77,11 @@ class MainActivity
                 }
             }
         })
+
+        binding.dot.setOnClickListener {
+            val intent = Intent(this, MapActivity::class.java)
+            startActivity(intent)
+        }
 
         showIpDialog()
     }
