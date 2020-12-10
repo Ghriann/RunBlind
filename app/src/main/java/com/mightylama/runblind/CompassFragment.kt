@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
  * A simple [Fragment] subclass.
  */
 
-class CompassFragment(callback: CompassFragmentCallback) : Fragment() {
+class CompassFragment(private val callback: CompassFragmentCallback) : Fragment() {
 
     private lateinit var binding: FragmentCompassBinding
 
@@ -30,6 +30,7 @@ class CompassFragment(callback: CompassFragmentCallback) : Fragment() {
     interface CompassFragmentCallback {
         suspend fun startCompass()
         suspend fun stopCompass()
+        var serverState: MainActivity.ServerState
     }
 
 
@@ -42,12 +43,16 @@ class CompassFragment(callback: CompassFragmentCallback) : Fragment() {
 
         binding.button.setOnClickListener(onCompassStartListener)
 
-        onCompassWaiting()
+        when (callback.serverState){
+            MainActivity.ServerState.Connected -> onCompassStopped()
+            MainActivity.ServerState.Disconnected -> onCompassWaiting()
+            MainActivity.ServerState.Undefined -> onCompassWaiting()
+        }
 
         return binding.root
     }
 
-    fun onRecordStarted() {
+    fun onCompassStarted() {
         binding.apply {
             loading.visibility = View.GONE
             button.apply {
@@ -58,7 +63,7 @@ class CompassFragment(callback: CompassFragmentCallback) : Fragment() {
         }
     }
 
-    fun onRecordStopped() {
+    fun onCompassStopped() {
         binding.apply {
             loading.visibility = View.GONE
             button.apply {

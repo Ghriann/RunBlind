@@ -5,6 +5,7 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import com.mightylama.runblind.databinding.FragmentRecordBinding
 import kotlinx.android.synthetic.main.fragment_record.*
 import kotlinx.coroutines.GlobalScope
@@ -19,17 +20,23 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
     private lateinit var binding: FragmentRecordBinding
 
     private val onRecordStartListener : View.OnClickListener = View.OnClickListener {
-        onRecordWaiting()
-        GlobalScope.launch { callback.startRecording(
-            with (binding) {
-                var namePath = nameInput.text.toString()
+
+        var name = binding.nameInput.text.toString()
+
+        if (name.isEmpty())
+            Toast.makeText(context, "Please enter a name !", Toast.LENGTH_SHORT).show()
+
+        else {
+            binding.run {
                 when (radioGroup.checkedRadioButtonId) {
-                    radioOpen.id -> namePath += "/open"
-                    radioClosed.id -> namePath += "/closed"
+                    radioOpen.id -> name += "/open"
+                    radioClosed.id -> name += "/closed"
                 }
-                namePath
             }
-        ) }
+
+            onRecordWaiting()
+            GlobalScope.launch { callback.startRecording(name) }
+        }
     }
 
     private val onRecordStopListener : View.OnClickListener = View.OnClickListener {
@@ -40,6 +47,7 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
     interface RecordFragmentCallback {
         suspend fun startRecording(namePath: String)
         suspend fun stopRecording()
+        var serverState: MainActivity.ServerState
     }
 
 
@@ -52,7 +60,11 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
 
         binding.button.setOnClickListener(onRecordStartListener)
 
-        onRecordWaiting()
+        when (callback.serverState){
+            MainActivity.ServerState.Connected -> onRecordStopped()
+            MainActivity.ServerState.Disconnected -> onRecordWaiting()
+            MainActivity.ServerState.Undefined -> onRecordWaiting()
+        }
 
         return binding.root
     }

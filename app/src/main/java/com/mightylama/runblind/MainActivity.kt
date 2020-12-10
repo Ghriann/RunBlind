@@ -39,7 +39,7 @@ class MainActivity
 
     private var baseUrl: String? = null
     private val httpClient = HttpClient()
-    private var serverState = ServerState.Undefined
+    override var serverState = ServerState.Undefined
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val pingRunnable = object : Runnable {
@@ -159,6 +159,7 @@ class MainActivity
         binding.dot.imageTintList = getColorStateList(R.color.dotColorConnected)
         circuitListFragment?.onCircuitStopped()
         recordFragment?.onRecordStopped()
+        compassFragment?.onCompassStopped()
 
         GlobalScope.launch {
             getVolume()
@@ -169,12 +170,16 @@ class MainActivity
 
     private suspend fun getCircuitList() {
         val serializedList = getFromServer("get_circuit_list")
-        runOnUiThread { updateCircuitList(serializedList) }
+        serializedList?.let {
+            runOnUiThread { updateCircuitList(it) }
+        }
     }
 
     private suspend fun getVolume(){
-        val volume = getFromServer("get_volume").toInt()
-        runOnUiThread { updateVolume(volume) }
+        val volume = getFromServer("get_volume")
+        volume?.let {
+            runOnUiThread { updateVolume(volume.toInt()) }
+        }
     }
 
     private suspend fun setVolume(volume: Int){
@@ -203,21 +208,21 @@ class MainActivity
 
     override suspend fun startCompass() {
         getFromServer("start_compass")
-        runOnUiThread { compassFragment?.onRecordStarted() }
+        runOnUiThread { compassFragment?.onCompassStarted() }
     }
 
     override suspend fun stopCompass() {
         getFromServer("stop_compass")
-        runOnUiThread { compassFragment?.onRecordStopped() }
+        runOnUiThread { compassFragment?.onCompassStopped() }
     }
 
 
-    private suspend fun getFromServer(path: String) : String{
+    private suspend fun getFromServer(path: String) : String?{
         return try {
             httpClient.get(baseUrl + path)
         } catch (exception: Exception) {
             runOnUiThread { Toast.makeText(this, exception.toString(), Toast.LENGTH_SHORT).show() }
-            ""
+            null
         }
     }
 
@@ -273,7 +278,7 @@ class MainActivity
             .show()
     }
 
-    private enum class ServerState{
+    enum class ServerState{
         Connected, Disconnected, Undefined
     }
 }

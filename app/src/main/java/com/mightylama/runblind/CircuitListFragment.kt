@@ -29,6 +29,7 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
     interface CircuitListCallback {
         suspend fun startCircuit(circuitIndex: Int)
         suspend fun stopCircuit()
+        var serverState: MainActivity.ServerState
     }
 
     private val startCircuitListener : View.OnClickListener = View.OnClickListener {
@@ -54,7 +55,11 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
         }
 
         binding.button.setOnClickListener(startCircuitListener)
-        onCircuitWaiting()
+        when (callback.serverState){
+            MainActivity.ServerState.Connected -> onCircuitStopped()
+            MainActivity.ServerState.Disconnected -> onCircuitWaiting()
+            MainActivity.ServerState.Undefined -> onCircuitWaiting()
+        }
 
         // Inflate the layout for this fragment
         return binding.root
