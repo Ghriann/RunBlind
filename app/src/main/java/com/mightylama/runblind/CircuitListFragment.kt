@@ -29,6 +29,7 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
     interface CircuitListCallback {
         suspend fun startCircuit(circuitIndex: Int)
         suspend fun stopCircuit()
+        suspend fun getCircuitPath(index: Int)
         var serverState: MainActivity.ServerState
     }
 

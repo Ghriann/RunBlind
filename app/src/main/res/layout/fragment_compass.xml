@@ -11,13 +11,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/button_view"
-        android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true"
-        android:layout_marginBottom="80dp">
+        android:layout_centerInParent="true">
 
         <ImageButton
-            android:layout_width="80dp"
-            android:layout_height="80dp"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
             android:id="@+id/button"
             android:layout_gravity="center"
             android:backgroundTint="@color/buttonColor"
@@ -25,8 +23,8 @@
             android:scaleType="fitCenter"/>
 
         <ProgressBar
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
             android:id="@+id/loading"
 
             android:visibility="gone"

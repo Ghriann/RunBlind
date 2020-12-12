@@ -27,12 +27,10 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
             Toast.makeText(context, "Please enter a name !", Toast.LENGTH_SHORT).show()
 
         else {
-            binding.run {
-                when (radioGroup.checkedRadioButtonId) {
-                    radioOpen.id -> name += "/open"
-                    radioClosed.id -> name += "/closed"
-                }
-            }
+            name += if (binding.closedCheckbox.isChecked)
+                "/closed"
+            else
+                "/open"
 
             onRecordWaiting()
             GlobalScope.launch { callback.startRecording(name) }
@@ -84,8 +82,7 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
         binding.apply {
             loading.visibility = View.GONE
             nameInput.isEnabled = true
-            radioOpen.isEnabled = true
-            radioClosed.isEnabled = true
+            closedCheckbox.isEnabled = true
             button.apply {
                 isClickable = true
                 setImageResource(R.drawable.ic_baseline_play_arrow)
@@ -98,8 +95,7 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
         binding.apply {
             loading.visibility = View.VISIBLE
             nameInput.isEnabled = false
-            radioOpen.isEnabled = false
-            radioClosed.isEnabled = false
+            closedCheckbox.isEnabled = false
             button.apply {
                 isClickable = false
                 setImageResource(0)

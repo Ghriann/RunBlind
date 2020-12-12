@@ -6,7 +6,6 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-
     <com.google.android.material.tabs.TabLayout
         android:layout_height="wrap_content"
         android:layout_width="match_parent"
@@ -14,13 +13,21 @@
 
         android:layout_alignParentTop="true"/>
 
-    <androidx.viewpager2.widget.ViewPager2
+    <WebView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/pager"
+        android:id="@+id/web_view"
 
         android:layout_below="@id/tab"
-        android:layout_above="@id/bottom_panel"/>
+        android:layout_above="@id/pager"/>
+
+    <androidx.viewpager2.widget.ViewPager2
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:id="@+id/pager"
+
+        android:layout_above="@id/bottom_panel" />
+
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -35,7 +42,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_marginHorizontal="20dp"
-            android:layout_marginTop="20dp">
+            android:layout_marginTop="5dp">
 
             <TextView
                 android:layout_width="0dp"
@@ -43,39 +50,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="Yaw :"
-                android:textSize="18sp"/>
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="Pitch :"
-                android:textSize="18sp" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="Roll :"
-                android:textSize="18sp"/>
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="Height :"
-                android:textSize="18sp"/>
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginHorizontal="20dp">
+                android:textSize="@dimen/bottom_data_text_size"/>
 
             <TextView
                 android:id="@+id/yaw_count"
@@ -84,7 +59,15 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="0"
-                android:textSize="18sp"/>
+                android:textSize="@dimen/bottom_data_text_size"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Pitch :"
+                android:textSize="@dimen/bottom_data_text_size" />
 
             <TextView
                 android:id="@+id/pitch_count"
@@ -93,7 +76,15 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="0"
-                android:textSize="18sp"/>
+                android:textSize="@dimen/bottom_data_text_size"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Roll :"
+                android:textSize="@dimen/bottom_data_text_size"/>
 
             <TextView
                 android:id="@+id/roll_count"
@@ -102,16 +93,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="0"
-                android:textSize="18sp"/>
-
-            <TextView
-                android:id="@+id/height_count"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="0"
-                android:textSize="18sp"/>
+                android:textSize="@dimen/bottom_data_text_size"/>
 
         </LinearLayout>
 
@@ -119,32 +101,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginHorizontal="30dp"
-            android:layout_marginTop="20dp">
+            android:layout_marginTop="5dp">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:layout_weight="0.3"
                 android:gravity="center"
                 android:text="Lat :"
-                android:textSize="18sp"/>
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="Lon :"
-                android:textSize="18sp" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginHorizontal="30dp">
+                android:textSize="@dimen/bottom_data_text_size"/>
 
             <TextView
                 android:id="@+id/lat_count"
@@ -153,7 +118,15 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="0"
-                android:textSize="18sp"/>
+                android:textSize="@dimen/bottom_data_text_size"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="0.3"
+                android:gravity="center"
+                android:text="Lon :"
+                android:textSize="@dimen/bottom_data_text_size" />
 
             <TextView
                 android:id="@+id/lon_count"
@@ -162,9 +135,9 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="0"
-                android:textSize="18sp"/>
-        </LinearLayout>
+                android:textSize="@dimen/bottom_data_text_size"/>
 
+        </LinearLayout>
 
         <RelativeLayout
             android:layout_width="match_parent"

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>GIS</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <link rel="stylesheet" href="leaflet.css" />
+        <style>
+            html, body, #map {
+                height: 100%;
+                width: 100%
+            }
+            body {
+                padding: 0;
+                margin: 0;
+            }
+      </style>
+    </head>
+<body>
+    <div id="map"></div>
+</body>
+
+<script src="leaflet.js"></script>
+<script>
+
+    var pathLine = null
+    var isInteracting = false
+    var waitBeforeFit = false
+
+    var map = L.map('map').setView([48.712676, 2.220417], 17);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    map.on('movestart', onStartInteraction)
+    map.on('zoomstart', onStartInteraction)
+    map.on('moveend', onStopInteraction)
+    map.on('zoomend', onStopInteraction)
+
+
+   function updatePath(pointList, instantPan) {
+
+        if (instantPan) {
+            waitBeforeFit = false
+        }
+
+        if (pathLine != null) {
+            pathLine.remove()
+        }
+
+        if(pointList != null) {
+            pathLine = L.polyline(pointList).addTo(map)
+            tryFitBounds()
+        }
+    }
+
+    function updatePosition(point) {
+        L.marker(point).addTo(map)
+    }
+
+    function tryFitBounds() {
+        if (!isInteracting) {
+            if (waitBeforeFit) {
+                waitBeforeFit = false
+            } else {
+                map.fitBounds(pathLine.getBounds())
+            }
+        }
+    }
+
+    function onStartInteraction(e) {
+        waitBeforeFit = true
+        isInteracting = true
+    }
+
+    function onStopInteraction(e) {
+        isInteracting = false
+    }
+
+</script>
