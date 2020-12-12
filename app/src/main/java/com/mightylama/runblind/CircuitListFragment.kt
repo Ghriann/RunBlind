@@ -5,6 +5,7 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.SortedList
@@ -53,6 +54,13 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
             adapter = ArrayAdapter<String>(it, android.R.layout.simple_spinner_item, circuitList)
                 .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
             binding.spinner.adapter = adapter
+        }
+        binding.spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(p0: AdapterView<*>?) {}
+
+            override fun onItemSelected(p0: AdapterView<*>?, p1: View?, p2: Int, p3: Long) {
+                GlobalScope.launch { callback.getCircuitPath(p2) }
+            }
         }
 
         binding.button.setOnClickListener(startCircuitListener)

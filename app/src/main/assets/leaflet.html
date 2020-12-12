@@ -22,9 +22,15 @@
 <script src="leaflet.js"></script>
 <script>
 
-    var pathLine = null
-    var isInteracting = false
-    var waitBeforeFit = false
+    var pathLine = null;
+    var positionMarker = null;
+    var isInteracting = false;
+    var waitBeforeFit = false;
+
+    var myIcon = L.icon({
+        iconUrl: "marker.png",
+        iconAnchor: [12,28]
+    });
 
     var map = L.map('map').setView([48.712676, 2.220417], 17);
 
@@ -32,49 +38,56 @@
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    map.on('movestart', onStartInteraction)
-    map.on('zoomstart', onStartInteraction)
-    map.on('moveend', onStopInteraction)
-    map.on('zoomend', onStopInteraction)
+    map.on('movestart', onStartInteraction);
+    map.on('zoomstart', onStartInteraction);
+    map.on('moveend', onStopInteraction);
+    map.on('zoomend', onStopInteraction);
 
 
    function updatePath(pointList, instantPan) {
 
         if (instantPan) {
-            waitBeforeFit = false
+            waitBeforeFit = false;
         }
 
         if (pathLine != null) {
-            pathLine.remove()
+            pathLine.remove();
+            pathLine = null;
         }
 
         if(pointList != null) {
-            pathLine = L.polyline(pointList).addTo(map)
-            tryFitBounds()
+            pathLine = L.polyline(pointList).addTo(map);
+            tryFitBounds();
         }
     }
 
     function updatePosition(point) {
-        L.marker(point).addTo(map)
+        if (positionMarker != null) {
+            positionMarker.remove();
+            positionMarker = null;
+        }
+        if (point != null) {       
+            positionMarker = L.marker(point, {icon: myIcon}).addTo(map);
+        }
     }
 
     function tryFitBounds() {
         if (!isInteracting) {
             if (waitBeforeFit) {
-                waitBeforeFit = false
+                waitBeforeFit = false;
             } else {
-                map.fitBounds(pathLine.getBounds())
+                map.fitBounds(pathLine.getBounds());
             }
         }
     }
 
     function onStartInteraction(e) {
-        waitBeforeFit = true
-        isInteracting = true
+        waitBeforeFit = true;
+        isInteracting = true;
     }
 
     function onStopInteraction(e) {
-        isInteracting = false
+        isInteracting = false;
     }
 
 </script>
