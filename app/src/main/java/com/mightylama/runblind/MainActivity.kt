@@ -2,11 +2,9 @@ package com.mightylama.runblind
 
 import android.content.Context
 import android.content.DialogInterface
-import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebViewClient
 import android.widget.SeekBar
@@ -16,21 +14,23 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.view.forEach
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
-import androidx.viewpager.widget.ViewPager
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.mightylama.runblind.databinding.ActivityMainBinding
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.network.sockets.ConnectTimeoutException
 import io.ktor.util.network.UnresolvedAddressException
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.lang.Exception
-import java.lang.ref.WeakReference
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.math.min
+import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType
 
 class MainActivity
     : FragmentActivity(),
@@ -44,7 +44,12 @@ class MainActivity
     private var recordFragment: RecordFragment? = null
     private var compassFragment: CompassFragment? = null
 
-    private var serializedCircuitPath: String? = null
+    private var centerMapOnPosition = false
+    private var lastPosition: Point? = null
+
+    private var lastSelectedCircuit = 0
+    private var isRecording = false
+    private val recordingPath = LinkedList<Point>()
 
     private var isPagerEnabled: Boolean = false
         set(value){
@@ -84,8 +89,23 @@ class MainActivity
                 override fun onPageSelected(position: Int) {
                     super.onPageSelected(position)
                     when (position) {
-                        0 -> serializedCircuitPath?.let{ updatePath(it,true) }
-                        else -> removePath()
+                        0 -> {
+                            centerMapOnPosition = false
+                            if (serverState == ServerState.Connected) GlobalScope.launch {
+                                getCircuitList()
+                            }
+                        }
+                        1 -> {
+                            removePath()
+                            centerMapOnPosition = true
+                            lastPosition?.let { setView(it, 17) }
+
+                        }
+                        2 -> {
+                            removePath()
+                            centerMapOnPosition = true
+                            lastPosition?.let { setView(it, 17) }
+                        }
                     }
                 }
             })
@@ -155,9 +175,33 @@ class MainActivity
                 if (serverState != ServerState.Connected)
                     onServerConnected()
 
+                val spatialData = SpatialData()
                 response.split(",")
-                    .also { updateOrientation(it.subList(0, 5)) }
-                    //TODO .also { it.last() ... }
+                    .also {
+                        it.subList(0,3).map { it.toInt() }
+                            .let { spatialData.apply {
+                                yaw = it[0]
+                                pitch = it[1]
+                                roll = it[2]
+                            }}
+                    }
+                    .also {
+                        it.subList(3,5).map { it.toDouble() }
+                            .let { spatialData.position.apply {
+                                x = it[0]
+                                y = it[1]
+                            }}
+                    }
+
+                    lastPosition = spatialData.position
+                        .also { updatePosition(it) }
+                        .also {
+                            if (isRecording) {
+                                recordingPath.add(it)
+                                updatePath(recordingPath)
+                            }
+                        }
+                    updateDebugData(spatialData)
             }
         }
 
@@ -207,10 +251,15 @@ class MainActivity
 
 
     private suspend fun getCircuitList() {
-        val serializedList = getFromServer("get_circuit_list")
-        serializedList?.let {
-            runOnUiThread { updateCircuitList(it) }
-        }
+        getFromServer("get_circuit_list")
+            ?.let { runOnUiThread {
+                updateCircuitList(it)
+                circuitListFragment?.binding?.spinner?.apply {
+                    lastSelectedCircuit = min(lastSelectedCircuit, adapter.count - 1)
+                        .also { setSelection(it) }
+                        .also { GlobalScope.launch { getCircuitPath(it) }}
+                }
+            } }
     }
 
     private suspend fun getVolume(){
@@ -227,6 +276,8 @@ class MainActivity
     override suspend fun startCircuit(circuitIndex: Int) {
         getFromServer("start_circuit/$circuitIndex")
         runOnUiThread {
+            centerMapOnPosition = true
+            lastPosition?.let { setView(it, 20) }
             isPagerEnabled = false
             circuitListFragment?.onCircuitStarted()
         }
@@ -235,6 +286,8 @@ class MainActivity
     override suspend fun stopCircuit() {
         getFromServer("stop_circuit")
         runOnUiThread {
+            centerMapOnPosition = false
+            fitBounds()
             isPagerEnabled = true
             circuitListFragment?.onCircuitStopped()
         }
@@ -243,24 +296,32 @@ class MainActivity
     override suspend fun startRecording(namePath: String) {
         getFromServer("start_recording/$namePath")
         runOnUiThread {
+            recordingPath.clear()
+            isRecording = true
             isPagerEnabled = false
             recordFragment?.onRecordStarted()
         }
     }
 
     override suspend fun stopRecording() {
+        isRecording = false
         getFromServer("stop_recording")
         runOnUiThread {
+            updatePath("")
             isPagerEnabled = true
+            circuitListFragment?.binding?.spinner?.adapter?.count?.let { lastSelectedCircuit = it }
             recordFragment?.onRecordStopped()
         }
     }
 
     override suspend fun getCircuitPath(index: Int) {
+        lastSelectedCircuit = index
         val response = getFromServer("get_circuit_path/$index")
         response?.let {
-            serializedCircuitPath = it
-            runOnUiThread { updatePath(it, true) }
+            if (binding.pager.currentItem == 0) runOnUiThread {
+                updatePath(it)
+                fitBounds()
+            }
         }
     }
 
@@ -291,21 +352,19 @@ class MainActivity
     }
 
 
-    private fun updateOrientation(spatialDataList: List<String>) {
+    private fun updateDebugData(spatialData: SpatialData) {
 
         binding.apply {
-            yawCount.text = spatialDataList[0]
-            pitchCount.text = spatialDataList[1]
-            rollCount.text = spatialDataList[2]
-            val lat = spatialDataList[3].also { latCount.text = it }
-            val lon = spatialDataList[4].also { lonCount.text = it }
 
-            updatePosition("[$lat,$lon]")
+            { textView: TextView, data: Any ->
+                textView.text = data.toString()
+            }
+                .also { it(yawCount, spatialData.yaw) }
+                .also { it(pitchCount, spatialData.pitch) }
+                .also { it(rollCount, spatialData.roll) }
+                .also { it(latCount, spatialData.position.x) }
+                .also { it(lonCount, spatialData.position.y) }
         }
-    }
-
-    private fun updateOrientation(serializedSpatialData: String) {
-         updateOrientation(serializedSpatialData.split(","))
     }
 
     private fun updateVolume(volume: Int) {
@@ -313,7 +372,6 @@ class MainActivity
             progress = volume
             isEnabled = true
         }
-
     }
 
     private fun updateCircuitList(serializedNameList: String) {
@@ -363,29 +421,42 @@ class MainActivity
         }
     }
 
-
-    private fun updatePosition(point: Array<Double>) {
-        updatePosition(serializePoint(point))
+    private fun setZoom(zoom: Int) {
+        runJavascript("setZoom($zoom)")
     }
 
-    private fun updatePosition(serializedPoint: String) {
-        runJavascript("updatePosition($serializedPoint)")
+
+    private fun setView(point: Point, zoom: Int) {
+        setView(point.toString(), zoom)
     }
 
-    private fun updatePath(pointList: List<Array<Double>>, instantPan: Boolean) {
-        updatePath(serializePointList(pointList), instantPan)
+    private fun setView(serializedPoint: String, zoom: Int) {
+        runJavascript("setView($serializedPoint,$zoom)")
     }
 
-    private fun updatePath(serializedPointList: String, instantPan: Boolean) {
-        runJavascript("updatePath($serializedPointList,$instantPan)")
+
+    private fun updatePosition(point: Point, immediatePan: Boolean = false) {
+        updatePosition(point.toString(), immediatePan)
+    }
+
+    private fun updatePosition(serializedPoint: String, immediatePan: Boolean = false) {
+        runJavascript("updatePosition($serializedPoint,$centerMapOnPosition,$immediatePan)")
+    }
+
+    private fun updatePath(pointList: List<Point>) {
+        updatePath("[" + pointList.joinToString(",") { it.toString() } + "]")
+    }
+
+    private fun updatePath(serializedPointList: String) {
+        runJavascript("updatePath($serializedPointList)")
     }
 
     private fun removePath() {
-        updatePath("null",true)
+        updatePath("null")
     }
 
-    private fun tryFitBounds() {
-        runJavascript("tryFitBounds()")
+    private fun fitBounds() {
+        runJavascript("fitBounds()")
     }
 
 
@@ -395,15 +466,12 @@ class MainActivity
         }
     }
 
-    private fun serializePoint(point: Array<Double>): String {
-        return "[" + point[0] + "," + point[1] + "]"
-    }
 
-    private fun serializePointList(pointList: List<Array<Double>>): String {
-        var serialized = "["
-        pointList.forEach {
-            serialized += "[" + it[0] + "," + it[1] + "],"
+    class SpatialData(var yaw: Int = 0, var pitch: Int = 0, var roll: Int = 0, var position: Point = Point())
+
+    class Point(var x: Double = 0.0, var y: Double = 0.0) {
+        override fun toString(): String {
+            return "[$x,$y]"
         }
-        return serialized.dropLast(1) + "]"
     }
 }

@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 class CircuitListFragment(private val callback: CircuitListCallback, private val circuitList : ArrayList<String>)
     : Fragment() {
 
-    private lateinit var binding: FragmentCircuitListBinding
+    var binding: FragmentCircuitListBinding? = null
     private lateinit var adapter: ArrayAdapter<String>
 
     interface CircuitListCallback {
@@ -36,7 +36,7 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
 
     private val startCircuitListener : View.OnClickListener = View.OnClickListener {
         onCircuitWaiting()
-        GlobalScope.launch { callback.startCircuit(binding.spinner.selectedItemPosition) }
+        binding?.let { GlobalScope.launch { callback.startCircuit(it.spinner.selectedItemPosition) } }
     }
 
     private val stopCircuitListener : View.OnClickListener = View.OnClickListener {
@@ -53,9 +53,9 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
         context?.let {
             adapter = ArrayAdapter<String>(it, android.R.layout.simple_spinner_item, circuitList)
                 .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            binding.spinner.adapter = adapter
+            binding?.spinner?.adapter = adapter
         }
-        binding.spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+        binding?.spinner?.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(p0: AdapterView<*>?) {}
 
             override fun onItemSelected(p0: AdapterView<*>?, p1: View?, p2: Int, p3: Long) {
@@ -63,7 +63,7 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
             }
         }
 
-        binding.button.setOnClickListener(startCircuitListener)
+        binding?.button?.setOnClickListener(startCircuitListener)
         when (callback.serverState){
             MainActivity.ServerState.Connected -> onCircuitStopped()
             MainActivity.ServerState.Disconnected -> onCircuitWaiting()
@@ -71,7 +71,7 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
         }
 
         // Inflate the layout for this fragment
-        return binding.root
+        return binding?.root
     }
 
     fun notifyDataChanged() {
@@ -79,7 +79,7 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
     }
 
     fun onCircuitStarted() {
-        binding.apply {
+        binding?.apply {
             loading.visibility = View.GONE
             button.apply {
                 isClickable = true
@@ -90,7 +90,7 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
     }
 
     fun onCircuitStopped() {
-        binding.apply{
+        binding?.apply{
             spinner.isEnabled = true
             loading.visibility = View.GONE
             button.apply {
@@ -103,10 +103,10 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
 
     fun onCircuitWaiting() {
 
-        binding.apply {
+        binding?.apply {
             spinner.isEnabled = false
             loading.visibility = View.VISIBLE
-            binding.button.apply {
+            button.apply {
                 isClickable = false
                 setImageResource(0)
             }

@@ -17,20 +17,22 @@ import kotlinx.coroutines.launch
  */
 class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() {
 
-    private lateinit var binding: FragmentRecordBinding
+    private var binding: FragmentRecordBinding? = null
 
     private val onRecordStartListener : View.OnClickListener = View.OnClickListener {
 
-        var name = binding.nameInput.text.toString()
+        var name = binding?.nameInput?.text.toString()
 
         if (name.isEmpty())
             Toast.makeText(context, "Please enter a name !", Toast.LENGTH_SHORT).show()
 
         else {
-            name += if (binding.closedCheckbox.isChecked)
-                "/closed"
-            else
-                "/open"
+            binding?.let {
+                name += if (it.closedCheckbox.isChecked)
+                    "/closed"
+                else
+                    "/open"
+            }
 
             onRecordWaiting()
             GlobalScope.launch { callback.startRecording(name) }
@@ -56,7 +58,7 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
         // Inflate the layout for this fragment
         binding = FragmentRecordBinding.inflate(layoutInflater)
 
-        binding.button.setOnClickListener(onRecordStartListener)
+        binding?.button?.setOnClickListener(onRecordStartListener)
 
         when (callback.serverState){
             MainActivity.ServerState.Connected -> onRecordStopped()
@@ -64,7 +66,7 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
             MainActivity.ServerState.Undefined -> onRecordWaiting()
         }
 
-        return binding.root
+        return binding?.root
     }
 
     fun onRecordStarted() {
@@ -79,9 +81,15 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
     }
 
     fun onRecordStopped() {
-        binding.apply {
+        binding?.apply {
             loading.visibility = View.GONE
-            nameInput.isEnabled = true
+            nameInput.apply {
+                isEnabled = true
+                if (text.isNotEmpty()) activity?.runOnUiThread {
+                    Toast.makeText(activity, "$text registered!", Toast.LENGTH_SHORT).show()
+                    setText("")
+                }
+            }
             closedCheckbox.isEnabled = true
             button.apply {
                 isClickable = true
@@ -92,7 +100,7 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
     }
 
     fun onRecordWaiting() {
-        binding.apply {
+        binding?.apply {
             loading.visibility = View.VISIBLE
             nameInput.isEnabled = false
             closedCheckbox.isEnabled = false

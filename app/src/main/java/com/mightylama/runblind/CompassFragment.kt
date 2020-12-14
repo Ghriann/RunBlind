@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 
 class CompassFragment(private val callback: CompassFragmentCallback) : Fragment() {
 
-    private lateinit var binding: FragmentCompassBinding
+    private var binding: FragmentCompassBinding? = null
 
     private val onCompassStartListener : View.OnClickListener = View.OnClickListener {
         onCompassWaiting()
@@ -42,7 +42,7 @@ class CompassFragment(private val callback: CompassFragmentCallback) : Fragment(
         // Inflate the layout for this fragment
         binding = FragmentCompassBinding.inflate(layoutInflater)
 
-        binding.button.setOnClickListener(onCompassStartListener)
+        binding?.button?.setOnClickListener(onCompassStartListener)
 
         when (callback.serverState){
             MainActivity.ServerState.Connected -> onCompassStopped()
@@ -50,11 +50,11 @@ class CompassFragment(private val callback: CompassFragmentCallback) : Fragment(
             MainActivity.ServerState.Undefined -> onCompassWaiting()
         }
 
-        return binding.root
+        return binding?.root
     }
 
     fun onCompassStarted() {
-        binding.apply {
+        binding?.apply {
             loading.visibility = View.GONE
             button.apply {
                 isClickable = true
@@ -65,7 +65,7 @@ class CompassFragment(private val callback: CompassFragmentCallback) : Fragment(
     }
 
     fun onCompassStopped() {
-        binding.apply {
+        binding?.apply {
             loading.visibility = View.GONE
             button.apply {
                 isClickable = true
@@ -76,7 +76,7 @@ class CompassFragment(private val callback: CompassFragmentCallback) : Fragment(
     }
 
     fun onCompassWaiting() {
-        binding.apply {
+        binding?.apply {
             loading.visibility = View.VISIBLE
             button.apply {
                 isClickable = false
