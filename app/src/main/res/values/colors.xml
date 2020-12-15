@@ -10,4 +10,6 @@
     <color name="dotColorConnected">#55EC5C</color>
     <color name="dotColorDisconnected">#FF1400</color>
 
+    <color name="circuitPathColor">#42A5F5</color>
+
 </resources>

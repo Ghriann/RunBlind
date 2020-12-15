@@ -2,6 +2,7 @@ package com.mightylama.runblind
 
 import android.content.Context
 import android.content.DialogInterface
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -11,6 +12,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.core.view.forEach
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
@@ -19,11 +21,25 @@ import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import com.mapbox.geojson.FeatureCollection
+import com.mapbox.mapboxsdk.Mapbox
+import com.mapbox.mapboxsdk.camera.CameraUpdate
+import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
+import com.mapbox.mapboxsdk.geometry.LatLng
+import com.mapbox.mapboxsdk.geometry.LatLngBounds
+import com.mapbox.mapboxsdk.maps.MapboxMap
+import com.mapbox.mapboxsdk.maps.Style
+import com.mapbox.mapboxsdk.plugins.annotation.*
+import com.mapbox.mapboxsdk.style.layers.PropertyFactory
+import com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineJoin
+import com.mapbox.mapboxsdk.utils.BitmapUtils
+import com.mapbox.mapboxsdk.utils.ColorUtils
 import com.mightylama.runblind.databinding.ActivityMainBinding
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.network.sockets.ConnectTimeoutException
 import io.ktor.util.network.UnresolvedAddressException
+import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import java.lang.Exception
@@ -37,6 +53,10 @@ class MainActivity
     CircuitListFragment.CircuitListCallback, RecordFragment.RecordFragmentCallback, CompassFragment.CompassFragmentCallback {
 
     private val KEY_IP = "key_ip"
+    private val KEY_MARKER = "key_marker"
+
+
+    private val KEY_API_MAPBOX_DOWNLOAD = BuildConfig.MAPBOX_KEY_DOWNLOAD
 
     private lateinit var binding: ActivityMainBinding
     private val circuitList = ArrayList<String>()
@@ -44,12 +64,17 @@ class MainActivity
     private var recordFragment: RecordFragment? = null
     private var compassFragment: CompassFragment? = null
 
-    private var centerMapOnPosition = false
-    private var lastPosition: Point? = null
+    private var targetZoomForCenterCamera = -1
+    private var lastPosition: LatLng? = null
+
+    private var lineManager : LineManager? = null
+    private var pathLine : Line? = null
+    private var symbolManager : SymbolManager? = null
+    private var symbol : Symbol? = null
 
     private var lastSelectedCircuit = 0
     private var isRecording = false
-    private val recordingPath = LinkedList<Point>()
+    private var mapbox : MapboxMap? = null
 
     private var isPagerEnabled: Boolean = false
         set(value){
@@ -80,6 +105,9 @@ class MainActivity
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        Mapbox.getInstance(this, getString(R.string.mapbox_access_token));
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -90,21 +118,21 @@ class MainActivity
                     super.onPageSelected(position)
                     when (position) {
                         0 -> {
-                            centerMapOnPosition = false
+                            targetZoomForCenterCamera = -1
                             if (serverState == ServerState.Connected) GlobalScope.launch {
                                 getCircuitList()
                             }
                         }
                         1 -> {
                             removePath()
-                            centerMapOnPosition = true
-                            lastPosition?.let { setView(it, 17) }
+                            targetZoomForCenterCamera = 17
+                            lastPosition?.let { setView(it) }
 
                         }
                         2 -> {
                             removePath()
-                            centerMapOnPosition = true
-                            lastPosition?.let { setView(it, 17) }
+                            targetZoomForCenterCamera = 17
+                            lastPosition?.let { setView(it) }
                         }
                     }
                 }
@@ -133,18 +161,48 @@ class MainActivity
 
 
         showIpDialog()
-        configureMap()
+        configureMap(savedInstanceState)
     }
 
     override fun onPause() {
         super.onPause()
         mainHandler.removeCallbacks(pingRunnable)
+        binding.map.onPause()
     }
 
     override fun onResume() {
         super.onResume()
         mainHandler.post(pingRunnable)
+        binding.map.onResume()
     }
+
+    override fun onStart() {
+        super.onStart()
+        binding.map.onStart()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        binding.map.onStop()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        binding.map.onSaveInstanceState(outState)
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        binding.map.onLowMemory()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        binding.map.onDestroy()
+    }
+
+
+
 
     class MainFragmentStateAdapter(private var mainActivity: MainActivity): FragmentStateAdapter(mainActivity) {
         override fun getItemCount(): Int {
@@ -188,19 +246,17 @@ class MainActivity
                     .also {
                         it.subList(3,5).map { it.toDouble() }
                             .let { spatialData.position.apply {
-                                x = it[0]
-                                y = it[1]
+                                latitude = it[0]
+                                longitude = it[1]
                             }}
                     }
 
                     lastPosition = spatialData.position
-                        .also { updatePosition(it) }
                         .also {
-                            if (isRecording) {
-                                recordingPath.add(it)
-                                updatePath(recordingPath)
-                            }
+                            if (isRecording) { addPointToPath(it) }
                         }
+
+                    updatePosition(spatialData.position, spatialData.yaw)
                     updateDebugData(spatialData)
             }
         }
@@ -276,8 +332,8 @@ class MainActivity
     override suspend fun startCircuit(circuitIndex: Int) {
         getFromServer("start_circuit/$circuitIndex")
         runOnUiThread {
-            centerMapOnPosition = true
-            lastPosition?.let { setView(it, 20) }
+            targetZoomForCenterCamera = 20
+            lastPosition?.let { setView(it) }
             isPagerEnabled = false
             circuitListFragment?.onCircuitStarted()
         }
@@ -286,7 +342,7 @@ class MainActivity
     override suspend fun stopCircuit() {
         getFromServer("stop_circuit")
         runOnUiThread {
-            centerMapOnPosition = false
+            targetZoomForCenterCamera = -1
             fitBounds()
             isPagerEnabled = true
             circuitListFragment?.onCircuitStopped()
@@ -296,7 +352,7 @@ class MainActivity
     override suspend fun startRecording(namePath: String) {
         getFromServer("start_recording/$namePath")
         runOnUiThread {
-            recordingPath.clear()
+            removePath()
             isRecording = true
             isPagerEnabled = false
             recordFragment?.onRecordStarted()
@@ -307,7 +363,7 @@ class MainActivity
         isRecording = false
         getFromServer("stop_recording")
         runOnUiThread {
-            updatePath("")
+            removePath()
             isPagerEnabled = true
             circuitListFragment?.binding?.spinner?.adapter?.count?.let { lastSelectedCircuit = it }
             recordFragment?.onRecordStopped()
@@ -319,7 +375,7 @@ class MainActivity
         val response = getFromServer("get_circuit_path/$index")
         response?.let {
             if (binding.pager.currentItem == 0) runOnUiThread {
-                updatePath(it)
+                updatePath(it.removePrefix("[").removeSuffix("]").split("],[").map { deserializePoint(it) } )
                 fitBounds()
             }
         }
@@ -362,8 +418,8 @@ class MainActivity
                 .also { it(yawCount, spatialData.yaw) }
                 .also { it(pitchCount, spatialData.pitch) }
                 .also { it(rollCount, spatialData.roll) }
-                .also { it(latCount, spatialData.position.x) }
-                .also { it(lonCount, spatialData.position.y) }
+                .also { it(latCount, spatialData.position.latitude) }
+                .also { it(lonCount, spatialData.position.longitude) }
         }
     }
 
@@ -413,65 +469,120 @@ class MainActivity
 
     // FOR MAP
 
-    private fun configureMap() {
-        binding.webView.apply {
-            webViewClient = WebViewClient()
-            settings.javaScriptEnabled = true
-            loadUrl("file:///android_asset/leaflet.html")
+    private fun configureMap(savedInstanceState: Bundle?) {
+
+        binding.map.apply {
+            onCreate(savedInstanceState)
+            getMapAsync {
+                mapbox = it.also {
+                    it.setStyle(Style.MAPBOX_STREETS) { style: Style ->
+
+                        it.uiSettings.isRotateGesturesEnabled = false
+
+                        BitmapUtils.getBitmapFromDrawable(ContextCompat.getDrawable(context, R.drawable.marker))
+                            ?.let { style.addImage(KEY_MARKER, it) }
+
+                        lineManager = LineManager(this, it, style)
+                        pathLine = lineManager?.create(
+                            LineOptions()
+                                .withLatLngs(MutableList(0) {LatLng()})
+                                .withLineWidth(5F)
+                                .withLineColor(ColorUtils.colorToRgbaString(getColor(R.color.circuitPathColor)))
+                        )
+                        symbolManager = SymbolManager(this, it, style)
+                        symbolManager?.apply {
+                            iconIgnorePlacement = true
+                            iconAllowOverlap = true
+                        }
+                        symbol = symbolManager?.create(
+                            SymbolOptions()
+                                .withLatLng(LatLng())
+                                .withIconOpacity(0F)
+                                .withIconImage(KEY_MARKER)
+                                .withIconSize(0.8F)
+                        )
+                    }
+                }
+            }
+        }
+
+    }
+
+
+    private fun setView(point: LatLng, zoom: Int) {
+        mapbox?.easeCamera(CameraUpdateFactory.newLatLngZoom(point, zoom.toDouble()))
+    }
+
+    private fun setView(point: LatLng) {
+        mapbox?.easeCamera(CameraUpdateFactory.newLatLngZoom(point, targetZoomForCenterCamera.toDouble()))
+    }
+
+
+        private fun updatePosition(point: LatLng, yaw : Int, immediatePan: Boolean = false) {
+        symbol?. apply {
+            iconOpacity = 1F
+            latLng = point
+            iconRotate = -yaw.toFloat()
+        }
+        symbolManager?.update(symbol)
+
+        if (targetZoomForCenterCamera != -1) {
+            mapbox?.easeCamera(CameraUpdateFactory.newLatLngZoom(point, targetZoomForCenterCamera.toDouble()))
         }
     }
 
-    private fun setZoom(zoom: Int) {
-        runJavascript("setZoom($zoom)")
+
+    private fun updatePath(pointList: List<LatLng>?) {
+        pathLine?.apply {
+            pointList?.let { latLngs = it }
+            lineManager?.update(this)
+        }
     }
 
-
-    private fun setView(point: Point, zoom: Int) {
-        setView(point.toString(), zoom)
-    }
-
-    private fun setView(serializedPoint: String, zoom: Int) {
-        runJavascript("setView($serializedPoint,$zoom)")
-    }
-
-
-    private fun updatePosition(point: Point, immediatePan: Boolean = false) {
-        updatePosition(point.toString(), immediatePan)
-    }
-
-    private fun updatePosition(serializedPoint: String, immediatePan: Boolean = false) {
-        runJavascript("updatePosition($serializedPoint,$centerMapOnPosition,$immediatePan)")
-    }
-
-    private fun updatePath(pointList: List<Point>) {
-        updatePath("[" + pointList.joinToString(",") { it.toString() } + "]")
-    }
-
-    private fun updatePath(serializedPointList: String) {
-        runJavascript("updatePath($serializedPointList)")
-    }
 
     private fun removePath() {
-        updatePath("null")
+        pathLine?.apply {
+            latLngs = ArrayList()
+            lineManager?.update(this) }
+    }
+
+    private fun addPointToPath(point : LatLng) {
+        pathLine?.apply {
+            latLngs = latLngs.toMutableList().also { it.add(point) }
+            lineManager?.update(this)
+        }
     }
 
     private fun fitBounds() {
-        runJavascript("fitBounds()")
-    }
-
-
-    private fun runJavascript(command: String) {
-        runOnUiThread {
-            binding.webView.evaluateJavascript(command) {}
+        pathLine?.latLngs?.let {
+            if (it.isNotEmpty()) {
+                CameraUpdateFactory.newLatLngBounds(
+                    LatLngBounds.Builder().includes(it).build(),
+                    100
+                ).let {cam ->
+                    mapbox?.let {
+                        if (it.cameraPosition.zoom > 5F)
+                            it.easeCamera(cam, 500)
+                        else
+                            it.moveCamera(cam)
+                    }
+                }
+            }
         }
     }
 
 
-    class SpatialData(var yaw: Int = 0, var pitch: Int = 0, var roll: Int = 0, var position: Point = Point())
-
-    class Point(var x: Double = 0.0, var y: Double = 0.0) {
-        override fun toString(): String {
-            return "[$x,$y]"
+    private fun deserializePoint(serializedPoint : String) : LatLng {
+        val point = LatLng()
+        serializedPoint.removePrefix("[").removeSuffix("]").split(",").let {
+            if (it.size == 2) {
+                point.latitude = it[0].toDouble()
+                point.longitude = it[1].toDouble()
+            }
         }
+        return point
     }
+
+
+    class SpatialData(var yaw: Int = 0, var pitch: Int = 0, var roll: Int = 0, var position: LatLng = LatLng())
 }
