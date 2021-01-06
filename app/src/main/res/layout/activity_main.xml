@@ -14,20 +14,32 @@
 
         android:layout_alignParentTop="true"/>
 
+
     <com.mapbox.mapboxsdk.maps.MapView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:id="@+id/map"
 
         android:layout_below="@id/tab"
-        android:layout_above="@id/pager" />
+        android:layout_above="@id/pager_frame"
+        android:elevation="1dp" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:id="@+id/pager_frame"
+
+        android:layout_above="@id/bottom_panel" />
+
 
     <androidx.viewpager2.widget.ViewPager2
         android:layout_width="match_parent"
         android:layout_height="80dp"
         android:id="@+id/pager"
 
-        android:layout_above="@id/bottom_panel" />
+        android:layout_below="@id/tab"
+        android:layout_above="@id/bottom_panel"
+        android:elevation="0dp"/>
 
 
     <LinearLayout

@@ -5,44 +5,51 @@
     android:layout_height="match_parent"
     tools:context=".CircuitListFragment">
 
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_toEndOf="@id/button_view">
-        <Spinner
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/spinner"
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:layout_alignParentBottom="true">
 
-            android:layout_gravity="center"/>
-    </FrameLayout>
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_toEndOf="@id/button_view">
+                <Spinner
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/spinner"
 
-    <FrameLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/button_view"
+                    android:layout_gravity="center"/>
+            </FrameLayout>
 
-        android:layout_centerVertical="true"
-        android:layout_marginStart="20dp">
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/button_view"
 
-        <ImageButton
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:id="@+id/button"
-            android:layout_gravity="center"
-            android:backgroundTint="@color/buttonColor"
-            android:src="@drawable/ic_baseline_play_arrow"
-            android:scaleType="fitCenter"/>
+                android:layout_centerVertical="true"
+                android:layout_marginStart="20dp">
 
-        <ProgressBar
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:id="@+id/loading"
+                <ImageButton
+                    android:layout_width="60dp"
+                    android:layout_height="60dp"
+                    android:id="@+id/button"
+                    android:layout_gravity="center"
+                    android:backgroundTint="@color/buttonColor"
+                    android:src="@drawable/ic_baseline_play_arrow"
+                    android:scaleType="fitCenter"/>
 
-            android:visibility="gone"
-            android:layout_gravity="center"
-            android:elevation="10dp"
-            android:indeterminate="true"/>
-    </FrameLayout>
+                <ProgressBar
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:id="@+id/loading"
+
+                    android:visibility="gone"
+                    android:layout_gravity="center"
+                    android:elevation="10dp"
+                    android:indeterminate="true"/>
+            </FrameLayout>
+
+    </RelativeLayout>
 
 </RelativeLayout>

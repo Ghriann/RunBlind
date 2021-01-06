@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
  */
 class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() {
 
-    private var binding: FragmentRecordBinding? = null
+    var binding: FragmentRecordBinding? = null
 
     private val onRecordStartListener : View.OnClickListener = View.OnClickListener {
 

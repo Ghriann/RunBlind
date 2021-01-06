@@ -1,12 +1,18 @@
 package com.mightylama.runblind
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.content.Context
 import android.content.DialogInterface
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
+import android.view.View
 import android.view.ViewGroup
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 import android.webkit.WebViewClient
 import android.widget.SeekBar
 import android.widget.TextView
@@ -47,10 +53,11 @@ import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.min
 import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType
+import kotlin.time.milliseconds
 
 class MainActivity
     : FragmentActivity(),
-    CircuitListFragment.CircuitListCallback, RecordFragment.RecordFragmentCallback, CompassFragment.CompassFragmentCallback {
+    CircuitListFragment.CircuitListCallback, RecordFragment.RecordFragmentCallback, CompassFragment.CompassFragmentCallback, SettingsFragment.SettingsFragmentCallback {
 
     private val KEY_IP = "key_ip"
     private val KEY_MARKER = "key_marker"
@@ -63,6 +70,7 @@ class MainActivity
     private var circuitListFragment: CircuitListFragment? = null
     private var recordFragment: RecordFragment? = null
     private var compassFragment: CompassFragment? = null
+    private var settingsFragment: SettingsFragment? = null
 
     private var targetZoomForCenterCamera = -1
     private var lastPosition: LatLng? = null
@@ -88,6 +96,12 @@ class MainActivity
             }
         }
 
+    private var isMapVisible: Boolean = true
+        set(value){
+            field = value
+            binding.map.visibility = if (value) View.VISIBLE else View.GONE
+        }
+
 
     private var baseUrl: String? = null
     private val httpClient = HttpClient()
@@ -111,25 +125,48 @@ class MainActivity
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        binding.map.apply {
+            x = width.toFloat()
+        }
+
         binding.pager.let {
             it.adapter = MainFragmentStateAdapter(this)
             it.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+
+                override fun onPageScrolled(
+                    position: Int,
+                    positionOffset: Float,
+                    positionOffsetPixels: Int
+                ) {
+                    super.onPageScrolled(position, positionOffset, positionOffsetPixels)
+                    binding.map.apply {
+                        if (position == 0) {
+                            x = width - positionOffsetPixels.toFloat()
+                        }
+                        else if (position > 0)
+                            x = 0F
+                    }
+                }
+
                 override fun onPageSelected(position: Int) {
                     super.onPageSelected(position)
                     when (position) {
                         0 -> {
+
+                        }
+                        1 -> {
                             targetZoomForCenterCamera = -1
                             if (serverState == ServerState.Connected) GlobalScope.launch {
                                 getCircuitList()
                             }
                         }
-                        1 -> {
+                        2 -> {
                             removePath()
                             targetZoomForCenterCamera = 17
                             lastPosition?.let { setView(it) }
 
                         }
-                        2 -> {
+                        3 -> {
                             removePath()
                             targetZoomForCenterCamera = 17
                             lastPosition?.let { setView(it) }
@@ -141,9 +178,10 @@ class MainActivity
 
         TabLayoutMediator(binding.tab, binding.pager) { tab, position ->
             when(position) {
-                0 -> tab.text = "Guiding"
-                1 -> tab.text = "Recording"
-                2 -> tab.text = "Compass"
+                0 -> tab.setIcon(R.drawable.ic_baseline_settings)
+                1 -> tab.text = "Guide"
+                2 -> tab.text = "Record"
+                3 -> tab.text = "Compass"
             }
         }.attach()
 
@@ -162,6 +200,7 @@ class MainActivity
 
         showIpDialog()
         configureMap(savedInstanceState)
+
     }
 
     override fun onPause() {
@@ -202,18 +241,17 @@ class MainActivity
     }
 
 
-
-
     class MainFragmentStateAdapter(private var mainActivity: MainActivity): FragmentStateAdapter(mainActivity) {
         override fun getItemCount(): Int {
-            return 3
+            return 4
         }
 
         override fun createFragment(position: Int): Fragment {
             return when (position) {
-                0 -> CircuitListFragment(mainActivity, mainActivity.circuitList).also { mainActivity.circuitListFragment = it }
-                1 -> RecordFragment(mainActivity).also { mainActivity.recordFragment = it }
-                2 -> CompassFragment(mainActivity).also { mainActivity.compassFragment = it }
+                0 -> SettingsFragment(mainActivity).also {mainActivity.settingsFragment = it}
+                1 -> CircuitListFragment(mainActivity, mainActivity.circuitList).also {mainActivity.circuitListFragment = it}
+                2 -> RecordFragment(mainActivity).also {mainActivity.recordFragment = it}
+                3 -> CompassFragment(mainActivity).also {mainActivity.compassFragment = it}
                 else -> Fragment()
             }
         }
@@ -467,7 +505,7 @@ class MainActivity
 
 
 
-    // FOR MAP
+    // ##  FOR MAP  ##
 
     private fun configureMap(savedInstanceState: Bundle?) {
 
@@ -585,4 +623,24 @@ class MainActivity
 
 
     class SpatialData(var yaw: Int = 0, var pitch: Int = 0, var roll: Int = 0, var position: LatLng = LatLng())
+
+
+
+    // ## FOR SETTINGS ##
+
+    override fun getSettings() {
+        GlobalScope.launch {
+            val response = getFromServer("get_settings")
+            response?.let { runOnUiThread { settingsFragment?.updateSettings(it) }}
+        }
+    }
+
+    override fun setSetting(key: String, value: Int) {
+         GlobalScope.launch {
+             val response = getFromServer("set_setting/$key/$value")
+             runOnUiThread {
+                 Toast.makeText(baseContext, response, Toast.LENGTH_SHORT).show()
+             }
+         }
+    }
 }
