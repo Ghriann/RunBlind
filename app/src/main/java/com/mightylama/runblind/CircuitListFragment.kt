@@ -9,7 +9,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.SortedList
-import com.mightylama.runblind.databinding.CircuitListHolderBinding
+import com.mightylama.runblind.databinding.HolderCircuitListBinding
 import com.mightylama.runblind.databinding.FragmentCircuitListBinding
 import kotlinx.android.synthetic.main.fragment_record.view.*
 import kotlinx.coroutines.GlobalScope
@@ -21,22 +21,24 @@ import kotlinx.coroutines.launch
  * A simple [Fragment] subclass.
  */
 
-class CircuitListFragment(private val callback: CircuitListCallback, private val circuitList : ArrayList<String>)
+class CircuitListFragment(private val callback: CircuitListCallback)
     : Fragment() {
 
     var binding: FragmentCircuitListBinding? = null
-    private lateinit var adapter: ArrayAdapter<String>
 
     interface CircuitListCallback {
         suspend fun startCircuit(circuitIndex: Int)
         suspend fun stopCircuit()
-        suspend fun getCircuitPath(index: Int)
         var serverState: MainActivity.ServerState
+        var circuitName: String?
+        var circuitIndex: Int?
     }
 
     private val startCircuitListener : View.OnClickListener = View.OnClickListener {
         onCircuitWaiting()
-        binding?.let { GlobalScope.launch { callback.startCircuit(it.spinner.selectedItemPosition) } }
+        callback.circuitIndex?.let { i ->
+            binding?.let { GlobalScope.launch { callback.startCircuit(i) } }
+        }
     }
 
     private val stopCircuitListener : View.OnClickListener = View.OnClickListener {
@@ -50,19 +52,6 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
     ): View? {
         binding = FragmentCircuitListBinding.inflate(layoutInflater)
 
-        context?.let {
-            adapter = ArrayAdapter<String>(it, android.R.layout.simple_spinner_item, circuitList)
-                .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            binding?.spinner?.adapter = adapter
-        }
-        binding?.spinner?.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onNothingSelected(p0: AdapterView<*>?) {}
-
-            override fun onItemSelected(p0: AdapterView<*>?, p1: View?, p2: Int, p3: Long) {
-                GlobalScope.launch { callback.getCircuitPath(p2) }
-            }
-        }
-
         binding?.button?.setOnClickListener(startCircuitListener)
         when (callback.serverState){
             MainActivity.ServerState.Connected -> onCircuitStopped()
@@ -70,13 +59,12 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
             MainActivity.ServerState.Undefined -> onCircuitWaiting()
         }
 
+        callback.circuitName?.let { updateCircuitName(it) }
+
         // Inflate the layout for this fragment
         return binding?.root
     }
 
-    fun notifyDataChanged() {
-        adapter.notifyDataSetChanged()
-    }
 
     fun onCircuitStarted() {
         binding?.apply {
@@ -91,7 +79,6 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
 
     fun onCircuitStopped() {
         binding?.apply{
-            spinner.isEnabled = true
             loading.visibility = View.GONE
             button.apply {
                 isClickable = true
@@ -104,12 +91,15 @@ class CircuitListFragment(private val callback: CircuitListCallback, private val
     fun onCircuitWaiting() {
 
         binding?.apply {
-            spinner.isEnabled = false
             loading.visibility = View.VISIBLE
             button.apply {
                 isClickable = false
                 setImageResource(0)
             }
         }
+    }
+
+    fun updateCircuitName(name: String) {
+        binding?.circuitName?.text = name
     }
 }

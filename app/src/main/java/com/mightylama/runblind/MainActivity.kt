@@ -2,6 +2,8 @@ package com.mightylama.runblind
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.app.Dialog
+import android.app.ProgressDialog.show
 import android.content.Context
 import android.content.DialogInterface
 import android.graphics.Color
@@ -19,6 +21,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.core.os.postDelayed
 import androidx.core.view.forEach
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
@@ -37,17 +40,21 @@ import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.Style
 import com.mapbox.mapboxsdk.plugins.annotation.*
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory
+import com.mapbox.mapboxsdk.style.layers.PropertyFactory.fillTranslate
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineJoin
 import com.mapbox.mapboxsdk.utils.BitmapUtils
 import com.mapbox.mapboxsdk.utils.ColorUtils
 import com.mightylama.runblind.databinding.ActivityMainBinding
+import com.mightylama.runblind.databinding.DialogScannerBinding
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.network.sockets.ConnectTimeoutException
 import io.ktor.util.network.UnresolvedAddressException
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 import java.lang.Exception
 import java.util.*
 import kotlin.collections.ArrayList
@@ -74,6 +81,9 @@ class MainActivity
 
     private var targetZoomForCenterCamera = -1
     private var lastPosition: LatLng? = null
+    private var circuitPointList: List<LatLng>? = null
+    override var circuitName: String? = null
+    override var circuitIndex: Int? = null
 
     private var lineManager : LineManager? = null
     private var pathLine : Line? = null
@@ -96,16 +106,12 @@ class MainActivity
             }
         }
 
-    private var isMapVisible: Boolean = true
-        set(value){
-            field = value
-            binding.map.visibility = if (value) View.VISIBLE else View.GONE
-        }
-
 
     private var baseUrl: String? = null
     private val httpClient = HttpClient()
     override var serverState = ServerState.Undefined
+    private var scanningDialogBinding : DialogScannerBinding? = null
+    private var scanningDialog : Dialog? = null
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val pingRunnable = object : Runnable {
@@ -152,13 +158,14 @@ class MainActivity
                     super.onPageSelected(position)
                     when (position) {
                         0 -> {
-
-                        }
-                        1 -> {
-                            targetZoomForCenterCamera = -1
                             if (serverState == ServerState.Connected) GlobalScope.launch {
                                 getCircuitList()
                             }
+                        }
+                        1 -> {
+                            targetZoomForCenterCamera = -1
+                            updatePath(circuitPointList)
+                            fitBounds()
                         }
                         2 -> {
                             removePath()
@@ -197,8 +204,8 @@ class MainActivity
             }
         })
 
+        createScanningDialog()
 
-        showIpDialog()
         configureMap(savedInstanceState)
 
     }
@@ -248,8 +255,8 @@ class MainActivity
 
         override fun createFragment(position: Int): Fragment {
             return when (position) {
-                0 -> SettingsFragment(mainActivity).also {mainActivity.settingsFragment = it}
-                1 -> CircuitListFragment(mainActivity, mainActivity.circuitList).also {mainActivity.circuitListFragment = it}
+                0 -> SettingsFragment(mainActivity, mainActivity.circuitList).also {mainActivity.settingsFragment = it}
+                1 -> CircuitListFragment(mainActivity).also {mainActivity.circuitListFragment = it}
                 2 -> RecordFragment(mainActivity).also {mainActivity.recordFragment = it}
                 3 -> CompassFragment(mainActivity).also {mainActivity.compassFragment = it}
                 else -> Fragment()
@@ -288,6 +295,9 @@ class MainActivity
                                 longitude = it[1]
                             }}
                     }
+                    .also{
+                        settingsFragment?.dotColor = getColorStateList(if (it[5] == "0") R.color.dotColorDisconnected else R.color.dotColorConnected)
+                    }
 
                     lastPosition = spatialData.position
                         .also {
@@ -324,6 +334,7 @@ class MainActivity
         circuitListFragment?.onCircuitWaiting()
         recordFragment?.onRecordWaiting()
         compassFragment?.onCompassWaiting()
+        settingsFragment?.settingsEnabled = false
         binding.volumeSlider.isEnabled = false
     }
 
@@ -337,6 +348,7 @@ class MainActivity
 
         GlobalScope.launch {
             getVolume()
+            getSettings()
             getCircuitList()
             getCircuitPath(0)
         }
@@ -345,15 +357,12 @@ class MainActivity
 
 
     private suspend fun getCircuitList() {
-        getFromServer("get_circuit_list")
-            ?.let { runOnUiThread {
+        getFromServer("get_circuit_list")?.let {
+            runOnUiThread {
                 updateCircuitList(it)
-                circuitListFragment?.binding?.spinner?.apply {
-                    lastSelectedCircuit = min(lastSelectedCircuit, adapter.count - 1)
-                        .also { setSelection(it) }
-                        .also { GlobalScope.launch { getCircuitPath(it) }}
-                }
-            } }
+                lastSelectedCircuit = settingsFragment?.selectSpinnerItem(lastSelectedCircuit) ?: 0
+            }
+        }
     }
 
     private suspend fun getVolume(){
@@ -403,7 +412,6 @@ class MainActivity
         runOnUiThread {
             removePath()
             isPagerEnabled = true
-            circuitListFragment?.binding?.spinner?.adapter?.count?.let { lastSelectedCircuit = it }
             recordFragment?.onRecordStopped()
         }
     }
@@ -413,8 +421,12 @@ class MainActivity
         val response = getFromServer("get_circuit_path/$index")
         response?.let {
             if (binding.pager.currentItem == 0) runOnUiThread {
-                updatePath(it.removePrefix("[").removeSuffix("]").split("],[").map { deserializePoint(it) } )
+                circuitPointList = it.removePrefix("[").removeSuffix("]").split("],[").map { deserializePoint(it) }
+                    .also { updatePath(it) }
                 fitBounds()
+                circuitName = circuitList[index]
+                    .also { circuitListFragment?.updateCircuitName(it) }
+                circuitIndex = index
             }
         }
     }
@@ -477,24 +489,9 @@ class MainActivity
             clear()
             addAll(nameList)
         }
-        runOnUiThread { circuitListFragment?.notifyDataChanged() }
+        runOnUiThread { settingsFragment?.notifyDataChanged() }
     }
 
-    private fun showIpDialog() {
-        val editText = TextInputEditText(this)
-        editText.setText(getPreferences(Context.MODE_PRIVATE).getString(KEY_IP, ""), TextView.BufferType.EDITABLE)
-        AlertDialog.Builder(this)
-            .setMessage("Please enter server IP")
-            .setView(editText)
-            .setCancelable(false)
-            .setPositiveButton("OK") { _: DialogInterface, _: Int ->
-                val address = editText.text.toString()
-                baseUrl = "http://$address:5000/"
-                getPreferences(Context.MODE_PRIVATE).edit().putString(KEY_IP, address).apply()
-            }
-            .create()
-            .show()
-    }
 
     enum class ServerState{
         Connected, Disconnected, Undefined
@@ -628,7 +625,7 @@ class MainActivity
 
     // ## FOR SETTINGS ##
 
-    override fun getSettings() {
+    private fun getSettings() {
         GlobalScope.launch {
             val response = getFromServer("get_settings")
             response?.let { runOnUiThread { settingsFragment?.updateSettings(it) }}
@@ -642,5 +639,74 @@ class MainActivity
                  Toast.makeText(baseContext, response, Toast.LENGTH_SHORT).show()
              }
          }
+    }
+
+
+
+    // ##FOR DEVICE DISCOVERY
+
+    private fun createScanningDialog() {
+        scanningDialogBinding = DialogScannerBinding.inflate(layoutInflater).also {
+            scanningDialog = AlertDialog.Builder(this)
+                .setView(it.root)
+                .setCancelable(false)
+                .create().also { it.show() }
+            it.reload.setOnClickListener { scanForDevices() }
+        }
+        scanForDevices()
+    }
+
+
+    private fun scanForDevices() {
+        scanningDialogBinding?.apply {
+            text.text = "Scanning network ..."
+            progress.visibility = View.VISIBLE
+            reload.visibility = View.GONE
+        }
+
+        GlobalScope.launch {
+            delay(5000)
+            runOnUiThread { scanningDialogBinding?.let { onScanningFailed() } }
+        }
+
+        getConnectedDevices().forEach {
+            GlobalScope.launch { ping(it) }
+        }
+    }
+
+
+    private fun getConnectedDevices() : List<String> {
+        val iter = File("/proc/net/arp").readLines().iterator()
+        val ipList = ArrayList<String>()
+
+        iter.next()
+        while(iter.hasNext()) {
+            ipList.add(iter.next().split(" ")[0])
+        }
+        return ipList
+    }
+
+    private fun onScanningFailed() {
+        scanningDialogBinding?.apply {
+            text.text = "No device found. Try again?"
+            progress.visibility = View.GONE
+            reload.visibility = View.VISIBLE
+        }
+    }
+
+    private suspend fun ping(address : String) {
+        try {
+            httpClient.get<String>("http://$address:5000/get_spatial_data")
+            runOnUiThread { onServerFound(address) }
+        }
+        catch(exception : Exception) {}
+    }
+
+    private fun onServerFound(address : String) {
+        scanningDialog?.dismiss()
+        scanningDialog = null
+        scanningDialogBinding = null
+        Toast.makeText(this, "Connected to $address", Toast.LENGTH_LONG).show()
+        baseUrl = "http://$address:5000/"
     }
 }

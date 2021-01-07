@@ -4,7 +4,8 @@ import os
 import numpy as np
 
 app = Flask(__name__)
-global i, r
+global i, r, b 
+b = 0
 
 def waitForIdle():
     global r
@@ -31,14 +32,28 @@ def set_volume(val):
     r.set("volume",val)
     return "1"
     
+@app.route('/get_settings')
+def get_settings():
+    return '1,0,2,0,0,1,25,1,1,1,0,0,1'
+
+@app.route('/set_setting/<key>/<value>')
+def set_setting(key, value):
+    return key + " set to " + value
+
 @app.route('/get_spatial_data')
 def get_spatial_data():
-    global r
+    global r, b
     data = r.mget(["Lat","Lon","Hei"])
     rawypr=str(r.get("YPR"),"utf-8").rstrip()
     ypr=rawypr.split('=')[1].split(',')
     ypr = ypr[0]+','+ypr[1]+','+ypr[2]
-    string = ypr+","+str(data[0],"utf-8")+","+str(data[1],"utf-8")+",truc"
+    string = ypr+","+str(data[0],"utf-8")+","+str(data[1],"utf-8")+"," + str(b)
+
+    if (b == 0):
+        b = 1
+    else:
+        b = 0
+
     print(string+"\n")
     return string
 

@@ -10,7 +10,7 @@ android {
         applicationId "com.mightylama.runblind"
         minSdkVersion 23
         targetSdkVersion 30
-        versionCode 11
+        versionCode 12
         versionName "2.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"

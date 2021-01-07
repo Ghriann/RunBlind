@@ -1,7 +1,7 @@
 package com.mightylama.runblind
 
-import android.R
 import android.content.Context
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.fragment.app.Fragment
@@ -16,24 +16,36 @@ import com.google.android.material.chip.ChipGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import com.mightylama.runblind.databinding.FragmentSettingsBinding
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlin.math.min
 
-class SettingsFragment(val callback : SettingsFragmentCallback) : Fragment() {
+class SettingsFragment(val callback : SettingsFragmentCallback, private val circuitList : ArrayList<String>) : Fragment() {
 
-    private var settingsEnabled = false
+    var settingsEnabled = false
         set(value) {
             field = value
             enableSettings(value)
         }
 
+    var dotColor : ColorStateList? = null
+        set(value) {
+            field = value
+            value?.let { binding?.gpsFixDot?.imageTintList = it }
+        }
+
     private lateinit var settingsViewList : List<View>
 
+    private lateinit var adapter: ArrayAdapter<String>
+
+
     interface SettingsFragmentCallback {
-        fun getSettings()
         fun setSetting(key : String, value : Int)
+        suspend fun getCircuitPath(index: Int)
     }
 
-    fun Boolean.toInt() = if (this) 1 else 0
-    fun Int.toBoolean() = this == 1
+    private fun Boolean.toInt() = if (this) 1 else 0
+    private fun Int.toBoolean() = this == 1
 
 
     private var binding : FragmentSettingsBinding? = null
@@ -102,6 +114,7 @@ class SettingsFragment(val callback : SettingsFragmentCallback) : Fragment() {
                     setSetting("head_diameter", if (text.isEmpty()) 0 else text.toInt())
                     val manager = context?.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                     manager.hideSoftInputFromWindow(view.windowToken, 0)
+                    binding?.headDiameterInputText?.requestFocus()
                     true
                 }
                 else {
@@ -139,17 +152,23 @@ class SettingsFragment(val callback : SettingsFragmentCallback) : Fragment() {
 
 
             context?.let {
-                ArrayAdapter<String>(it, R.layout.simple_spinner_item, listOf("Circuit1", "Circuit2", "Circuit3"))
-                    .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }.let {
-                        binding?.circuitSpinner?.adapter = it
+                adapter = ArrayAdapter<String>(it, android.R.layout.simple_spinner_item, circuitList)
+                    .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                binding?.circuitSpinner?.adapter = adapter
+            }
+            binding?.circuitSpinner?.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onNothingSelected(p0: AdapterView<*>?) {}
+
+                override fun onItemSelected(p0: AdapterView<*>?, p1: View?, p2: Int, p3: Long) {
+                    GlobalScope.launch {
+                        callback.getCircuitPath(p2)
                     }
+                }
             }
         }
 
         initializeViewList()
         settingsEnabled = false
-
-        callback.getSettings()
 
         return binding?.root
     }
@@ -188,8 +207,8 @@ class SettingsFragment(val callback : SettingsFragmentCallback) : Fragment() {
         return list
     }
 
-    public fun updateSettings(serializedSettings : String) {
-        val iter = serializedSettings.split("/").iterator()
+    fun updateSettings(serializedSettings : String) {
+        val iter = serializedSettings.split(",").iterator()
         binding?.apply {
             bellSwitch.setWithNextBool(iter)
             loopSwitch.setWithNextBool(iter)
@@ -218,6 +237,22 @@ class SettingsFragment(val callback : SettingsFragmentCallback) : Fragment() {
 
     private fun EditText.setWithNextInt(iter : Iterator<String>) {
         setText(iter.next())
+    }
+
+
+    fun notifyDataChanged() {
+        adapter.notifyDataSetChanged()
+    }
+
+    fun selectSpinnerItem(lastSelectedCircuit : Int) : Int {
+        var i = 0
+        binding?.circuitSpinner?.apply {
+            min(lastSelectedCircuit, adapter.count - 1)
+                .also { setSelection(it) }
+                .also { GlobalScope.launch { callback.getCircuitPath(it) } }
+                .also { i = it }
+        }
+        return i
     }
 
 }
