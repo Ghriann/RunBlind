@@ -47,6 +47,7 @@ import com.mapbox.mapboxsdk.utils.ColorUtils
 import com.mightylama.runblind.databinding.ActivityMainBinding
 import com.mightylama.runblind.databinding.DialogScannerBinding
 import io.ktor.client.HttpClient
+import io.ktor.client.features.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.network.sockets.ConnectTimeoutException
 import io.ktor.util.network.UnresolvedAddressException
@@ -108,7 +109,12 @@ class MainActivity
 
 
     private var baseUrl: String? = null
-    private val httpClient = HttpClient()
+    private val httpClient = HttpClient {
+        install(HttpTimeout) {
+            connectTimeoutMillis = 3000
+        }
+    }
+
     override var serverState = ServerState.Undefined
     private var scanningDialogBinding : DialogScannerBinding? = null
     private var scanningDialog : Dialog? = null

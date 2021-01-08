@@ -2,6 +2,7 @@ from flask import Flask
 import redis
 import os
 import numpy as np
+import time
 
 app = Flask(__name__)
 global i, r, b 
@@ -38,6 +39,7 @@ def get_settings():
 
 @app.route('/set_setting/<key>/<value>')
 def set_setting(key, value):
+    time.sleep(5)
     return key + " set to " + value
 
 @app.route('/get_spatial_data')
