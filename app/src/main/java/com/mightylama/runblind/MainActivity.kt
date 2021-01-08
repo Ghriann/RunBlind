@@ -541,6 +541,7 @@ class MainActivity
                                 .withIconOpacity(0F)
                                 .withIconImage(KEY_MARKER)
                                 .withIconSize(0.8F)
+                                .withIconOffset(arrayOf(0f, -9f))
                         )
                     }
                 }

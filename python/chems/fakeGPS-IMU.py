@@ -13,7 +13,7 @@ def loadTraj(str):
     # Chargement du circuit
     global cosphi
     path = "circuits/"
-    Traj = np.load(path+str+".npy")
+    Traj = np.load(path+str)
     nbTraj = np.size(Traj,1)
     cosphi = np.cos(np.radians(sum(Traj[0,:])/nbTraj))
     return Traj
@@ -42,7 +42,7 @@ while True:
     idx = (idx + 1)%nbTraj
     idxp1 = (idx + 10)%nbTraj
     yaw = int(180/np.pi*heading(Traj[:,idx],Traj[:,idxp1]))
-    X = Traj[:,idx] + amp*(perp(Traj[:,idxp1]-Traj[:,idx]))*np.sin(om*idx)
+    X = Traj[:,idx]
     Lat = f"{X[0,]:.6f}"
     Lon = f"{X[1,]:.6f}"
     Hei = int(X[2,])
