@@ -9,7 +9,6 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.SortedList
-import com.mightylama.runblind.databinding.HolderCircuitListBinding
 import com.mightylama.runblind.databinding.FragmentCircuitListBinding
 import kotlinx.android.synthetic.main.fragment_record.view.*
 import kotlinx.coroutines.GlobalScope
@@ -24,7 +23,7 @@ import kotlinx.coroutines.launch
 class CircuitListFragment(private val callback: CircuitListCallback)
     : Fragment() {
 
-    var binding: FragmentCircuitListBinding? = null
+    private var binding: FragmentCircuitListBinding? = null
 
     interface CircuitListCallback {
         suspend fun startCircuit(circuitIndex: Int)

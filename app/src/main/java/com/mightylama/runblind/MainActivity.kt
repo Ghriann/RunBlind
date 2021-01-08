@@ -635,8 +635,10 @@ class MainActivity
     override fun setSetting(key: String, value: Int) {
          GlobalScope.launch {
              val response = getFromServer("set_setting/$key/$value")
-             runOnUiThread {
-                 Toast.makeText(baseContext, response, Toast.LENGTH_SHORT).show()
+             if (response?.isNotEmpty() == true) {
+                 runOnUiThread {
+                     Toast.makeText(baseContext, response, Toast.LENGTH_SHORT).show()
+                 }
              }
          }
     }
