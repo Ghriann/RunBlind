@@ -15,6 +15,7 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
+import com.mapbox.mapboxsdk.maps.Style
 import com.mightylama.runblind.databinding.FragmentSettingsBinding
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -42,6 +43,7 @@ class SettingsFragment(val callback : SettingsFragmentCallback, private val circ
     interface SettingsFragmentCallback {
         fun setSetting(key : String, value : Int)
         suspend fun getCircuitPath(index: Int)
+        fun setMapStyle(styleKey: String)
     }
 
     private fun Boolean.toInt() = if (this) 1 else 0
@@ -80,12 +82,12 @@ class SettingsFragment(val callback : SettingsFragmentCallback, private val circ
             }
 
             mapChipGroup.setOnCheckedChangeListener { _, checkedId ->
-                val i = when(checkedId) {
-                    mapChipVector.id -> 0
-                    mapChipSatellite.id -> 1
-                    else -> 0
+                val key = when(checkedId) {
+                    mapChipVector.id -> Style.MAPBOX_STREETS
+                    mapChipSatellite.id -> Style.SATELLITE
+                    else -> Style.MAPBOX_STREETS
                 }
-                setSetting("map", i)
+                if (settingsEnabled) callback.setMapStyle(key)
             }
 
             hrtfChipGroup.setOnCheckedChangeListener { _, checkedId ->

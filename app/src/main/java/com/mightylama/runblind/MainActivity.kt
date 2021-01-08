@@ -547,7 +547,15 @@ class MainActivity
                 }
             }
         }
+    }
 
+    override fun setMapStyle(styleKey : String) {
+        mapbox?.let {
+            it.setStyle(styleKey) {style ->
+                BitmapUtils.getBitmapFromDrawable(ContextCompat.getDrawable(baseContext, R.drawable.marker))
+                    ?.let { style.addImage(KEY_MARKER, it) }
+            }
+        }
     }
 
 
