@@ -1,11 +1,15 @@
 package com.mightylama.runblind
 
+import android.content.Context
 import android.os.Bundle
-import androidx.fragment.app.Fragment
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
+import androidx.fragment.app.Fragment
 import com.mightylama.runblind.databinding.FragmentRecordBinding
 import kotlinx.android.synthetic.main.fragment_record.*
 import kotlinx.coroutines.GlobalScope
@@ -65,6 +69,21 @@ class RecordFragment(private var callback: RecordFragmentCallback) : Fragment() 
             MainActivity.ServerState.Disconnected -> onRecordWaiting()
             MainActivity.ServerState.Undefined -> onRecordWaiting()
         }
+
+        binding?.nameInput?.apply {
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            setOnEditorActionListener { textView, actionId, event ->
+                if ((actionId == EditorInfo.IME_ACTION_DONE) || ((event?.keyCode == KeyEvent.KEYCODE_ENTER) && (event.action == KeyEvent.ACTION_DOWN))) {
+                    val manager = context?.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    manager.hideSoftInputFromWindow(textView.windowToken, 0)
+                    binding?.root?.requestFocus()
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+
 
         return binding?.root
     }

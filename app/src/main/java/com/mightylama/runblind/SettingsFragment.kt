@@ -4,17 +4,18 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.view.KeyEvent
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.*
-import com.google.android.material.chip.Chip
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.EditText
+import android.widget.TextView
+import androidx.fragment.app.Fragment
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
-import com.google.android.material.textfield.TextInputEditText
 import com.mapbox.mapboxsdk.maps.Style
 import com.mightylama.runblind.databinding.FragmentSettingsBinding
 import kotlinx.coroutines.GlobalScope
@@ -44,6 +45,7 @@ class SettingsFragment(val callback : SettingsFragmentCallback, private val circ
         fun setSetting(key : String, value : Int)
         suspend fun getCircuitPath(index: Int)
         fun setMapStyle(styleKey: String)
+        fun calibrate()
     }
 
     private fun Boolean.toInt() = if (this) 1 else 0
@@ -100,13 +102,8 @@ class SettingsFragment(val callback : SettingsFragmentCallback, private val circ
                 setSetting("hrtf", i)
             }
 
-            gnssChipGroup.setOnCheckedChangeListener { _, checkedId ->
-                val i = when(checkedId) {
-                    gnssChipUbx.id -> 0
-                    gnssChipNmea.id -> 1
-                    else -> 0
-                }
-                setSetting("gnss", i)
+            calibrateChip.setOnClickListener {
+                callback.calibrate()
             }
 
 
@@ -191,12 +188,11 @@ class SettingsFragment(val callback : SettingsFragmentCallback, private val circ
 
     private fun initializeViewList() {
         binding?.apply {
-            settingsViewList = listOf(bellSwitch, loopSwitch, headDiameterInput, mainServiceSwitch, audioServiceSwitch, tasServiceSwitch, gnssServiceSwitch, imuServiceSwitch) +
+            settingsViewList = listOf(bellSwitch, loopSwitch, headDiameterInput, mainServiceSwitch, audioServiceSwitch, tasServiceSwitch, gnssServiceSwitch, imuServiceSwitch, calibrateChip) +
                     chipList(alarmChipGroup) +
                     chipList(sourceChipGroup) +
                     chipList(mapChipGroup) +
-                    chipList(hrtfChipGroup) +
-                    chipList(gnssChipGroup)
+                    chipList(hrtfChipGroup)
         }
     }
 
@@ -219,7 +215,6 @@ class SettingsFragment(val callback : SettingsFragmentCallback, private val circ
             mapChipGroup.setWithNextInt(iter)
             hrtfChipGroup.setWithNextInt(iter)
             headDiameterInput.setWithNextInt(iter)
-            gnssChipGroup.setWithNextInt(iter)
             mainServiceSwitch.setWithNextBool(iter)
             audioServiceSwitch.setWithNextBool(iter)
             tasServiceSwitch.setWithNextBool(iter)

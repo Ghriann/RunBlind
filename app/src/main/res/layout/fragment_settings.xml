@@ -360,46 +360,18 @@
         android:layout_weight="1"
 
         android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="center">
 
-        <TextView
+        <com.google.android.material.chip.Chip
+            android:id="@+id/calibrate_chip"
+            style="@style/Widget.MaterialComponents.Chip.Action"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
+            android:layout_gravity="center"
+            app:chipIconEnabled="true"
+            app:chipIcon="@drawable/ic_baseline_explore"
+            android:text="Calibrate"/>
 
-            style="@style/SettingsText"
-            android:text="GNSS" />
-
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/gnss_chip_group"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:foregroundGravity="center"
-                app:singleSelection="true"
-                app:selectionRequired="true"
-                app:singleLine="true">
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/gnss_chip_ubx"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="UBX"/>
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/gnss_chip_nmea"
-                    style="@style/Widget.MaterialComponents.Chip.Choice"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="NMEA"/>
-
-            </com.google.android.material.chip.ChipGroup>
-        </FrameLayout>
 
     </LinearLayout>
 

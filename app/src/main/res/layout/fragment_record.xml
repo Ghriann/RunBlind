@@ -6,6 +6,8 @@
     android:layout_height="match_parent"
 
     android:orientation="horizontal"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
     tools:context=".RecordFragment">
 
 

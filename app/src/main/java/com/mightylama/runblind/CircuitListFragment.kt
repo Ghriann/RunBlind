@@ -1,16 +1,11 @@
 package com.mightylama.runblind
 
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.SortedList
+import androidx.fragment.app.Fragment
 import com.mightylama.runblind.databinding.FragmentCircuitListBinding
-import kotlinx.android.synthetic.main.fragment_record.view.*
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 

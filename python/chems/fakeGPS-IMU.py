@@ -32,7 +32,7 @@ def perp(X):
 r=redis.Redis('localhost')
 # Read the reference track
 nom = str(r.get("circuit:nom"),"utf-8")
-Traj = loadTraj(nom)
+Traj = loadTraj(nom + ".npy")
 nbTraj = np.size(Traj,1)
 idx = -1
 amp = 0.5 # amplitude of oscillations

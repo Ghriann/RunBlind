@@ -1,47 +1,31 @@
 package com.mightylama.runblind
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.app.Dialog
-import android.app.ProgressDialog.show
 import android.content.Context
-import android.content.DialogInterface
-import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.Animation
-import android.view.animation.AnimationUtils
-import android.webkit.WebViewClient
+import android.view.inputmethod.InputMethodManager
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
-import androidx.core.os.postDelayed
 import androidx.core.view.forEach
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayoutMediator
-import com.google.android.material.textfield.TextInputEditText
-import com.google.android.material.textfield.TextInputLayout
-import com.mapbox.geojson.FeatureCollection
 import com.mapbox.mapboxsdk.Mapbox
-import com.mapbox.mapboxsdk.camera.CameraUpdate
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
 import com.mapbox.mapboxsdk.geometry.LatLng
 import com.mapbox.mapboxsdk.geometry.LatLngBounds
 import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.Style
 import com.mapbox.mapboxsdk.plugins.annotation.*
-import com.mapbox.mapboxsdk.style.layers.PropertyFactory
-import com.mapbox.mapboxsdk.style.layers.PropertyFactory.fillTranslate
-import com.mapbox.mapboxsdk.style.layers.PropertyFactory.lineJoin
 import com.mapbox.mapboxsdk.utils.BitmapUtils
 import com.mapbox.mapboxsdk.utils.ColorUtils
 import com.mightylama.runblind.databinding.ActivityMainBinding
@@ -51,17 +35,10 @@ import io.ktor.client.features.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.network.sockets.ConnectTimeoutException
 import io.ktor.util.network.UnresolvedAddressException
-import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
-import java.lang.Exception
-import java.util.*
-import kotlin.collections.ArrayList
-import kotlin.math.min
-import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType
-import kotlin.time.milliseconds
 
 class MainActivity
     : FragmentActivity(),
@@ -85,6 +62,9 @@ class MainActivity
     private var circuitPointList: List<LatLng>? = null
     override var circuitName: String? = null
     override var circuitIndex: Int? = null
+
+    private lateinit var inputManager: InputMethodManager
+
 
     private var lineManager : LineManager? = null
     private var pathLine : Line? = null
@@ -141,6 +121,8 @@ class MainActivity
             x = width.toFloat()
         }
 
+        inputManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+
         binding.pager.let {
             it.adapter = MainFragmentStateAdapter(this)
             it.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
@@ -162,6 +144,8 @@ class MainActivity
 
                 override fun onPageSelected(position: Int) {
                     super.onPageSelected(position)
+                    inputManager.hideSoftInputFromWindow(binding.root.windowToken, 0)
+
                     when (position) {
                         0 -> {
                             if (serverState == ServerState.Connected) GlobalScope.launch {
@@ -422,6 +406,7 @@ class MainActivity
         }
     }
 
+
     override suspend fun getCircuitPath(index: Int) {
         lastSelectedCircuit = index
         val response = getFromServer("get_circuit_path/$index")
@@ -450,6 +435,15 @@ class MainActivity
         runOnUiThread {
             isPagerEnabled = true
             compassFragment?.onCompassStopped()
+        }
+    }
+
+    override fun calibrate() {
+        GlobalScope.launch {
+            val response = getFromServer("calibrate")
+            runOnUiThread {
+                Toast.makeText(baseContext, response, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

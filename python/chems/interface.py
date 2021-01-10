@@ -41,6 +41,10 @@ def get_settings():
 def set_setting(key, value):
     return key + " set to " + value
 
+@app.route('/calibrate')
+def calibrate():
+    return "Calibrated !"
+
 @app.route('/get_spatial_data')
 def get_spatial_data():
     global r, b
