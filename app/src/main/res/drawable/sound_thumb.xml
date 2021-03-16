@@ -1,0 +1,16 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:gravity="fill"
+        android:drawable="@drawable/ic_baseline_brightness_1_24"
+
+        />
+    <item
+        android:gravity="center"
+        android:drawable="@drawable/ic_baseline_hearing_24"
+        android:top="10dp"
+        android:bottom="10dp"
+        android:left="10dp"
+        android:right="10dp"
+        />
+
+</layer-list>

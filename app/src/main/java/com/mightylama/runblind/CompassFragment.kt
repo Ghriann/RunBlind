@@ -6,6 +6,8 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.mightylama.runblind.databinding.FragmentCompassBinding
+import kotlinx.android.synthetic.main.dialog_scanner.view.*
+import kotlin.math.PI
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
@@ -19,7 +21,7 @@ class CompassFragment(private val callback: CompassFragmentCallback) : Fragment(
 
     private val onCompassStartListener : View.OnClickListener = View.OnClickListener {
         onCompassWaiting()
-        GlobalScope.launch { callback.startCompass() }
+        binding?.let { GlobalScope.launch { callback.startCompass() }}
     }
 
     private val onCompassStopListener : View.OnClickListener = View.OnClickListener {
@@ -81,6 +83,19 @@ class CompassFragment(private val callback: CompassFragmentCallback) : Fragment(
                 isClickable = false
                 setImageResource(0)
             }
+        }
+    }
+
+    fun displayOrientationHint(degree: Int) {
+        binding?.orientationHintText?.apply {
+            visibility = View.VISIBLE
+            text = "Setting orientation to : $degree°"
+        }
+    }
+
+    fun hideOrientationHint() {
+        binding?.orientationHintText?.apply {
+            visibility = View.GONE
         }
     }
 }

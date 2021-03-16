@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:mapbox="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    xmlns:circular="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".MainActivity">
@@ -40,6 +41,24 @@
         android:layout_below="@id/tab"
         android:layout_above="@id/bottom_panel"
         android:elevation="0dp"/>
+
+    <com.mightylama.runblind.CircularSlider2
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/slider"
+        android:visibility="gone"
+
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/tab"
+        android:layout_above="@id/bottom_panel"
+        android:layout_marginBottom="80dp"
+        android:padding="60dp"
+        android:elevation="1dp"
+
+        circular:border_color="@color/markerColor"
+        circular:border_thickness="5dp"
+        circular:thumb_image="@drawable/sound_thumb"
+        circular:thumb_size="50dp"/>
 
 
     <LinearLayout

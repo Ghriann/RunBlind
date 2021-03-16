@@ -11,6 +11,7 @@
     <color name="dotColorDisconnected">#FF1400</color>
 
     <color name="circuitPathColor">#42A5F5</color>
+    <color name="markerColor">#FF5656</color>
 
     <color name="separatorColor">#6E6E6E</color>
 

@@ -1,10 +1,13 @@
 package com.mightylama.runblind
 
+import android.animation.Animator
+import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
@@ -12,6 +15,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.core.view.forEach
 import androidx.fragment.app.Fragment
@@ -35,6 +39,7 @@ import io.ktor.client.features.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.network.sockets.ConnectTimeoutException
 import io.ktor.util.network.UnresolvedAddressException
+import kotlinx.android.synthetic.main.activity_main.view.*
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -65,7 +70,6 @@ class MainActivity
 
     private lateinit var inputManager: InputMethodManager
 
-
     private var lineManager : LineManager? = null
     private var pathLine : Line? = null
     private var symbolManager : SymbolManager? = null
@@ -85,6 +89,39 @@ class MainActivity
                     it.isEnabled = value
                 }
             }
+        }
+
+    private var isSliderVisible: Boolean = false
+        set(value) {
+            if (field && !value ) {
+                binding.slider.let {
+                    it.animate()
+                        .alpha(0f)
+                        .setDuration(200)
+                        .setListener(object : Animator.AnimatorListener {
+                            override fun onAnimationRepeat(p0: Animator?) {}
+
+                            override fun onAnimationEnd(p0: Animator?) {
+                                it.visibility = View.GONE
+                            }
+
+                            override fun onAnimationCancel(p0: Animator?) {}
+
+                            override fun onAnimationStart(p0: Animator?) {}
+                        })
+                }
+            }
+            else if (!field && value) {
+                binding.slider.let {
+                    it.alpha = 0f
+                    it.visibility = View.VISIBLE
+                    it.animate()
+                        .alpha(1f)
+                        .setDuration(200)
+                        .setListener(null)
+                }
+            }
+            field = value
         }
 
 
@@ -109,6 +146,7 @@ class MainActivity
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -151,22 +189,26 @@ class MainActivity
                             if (serverState == ServerState.Connected) GlobalScope.launch {
                                 getCircuitList()
                             }
+                            isSliderVisible = false
                         }
                         1 -> {
                             targetZoomForCenterCamera = -1
                             updatePath(circuitPointList)
                             fitBounds()
+                            isSliderVisible = false
                         }
                         2 -> {
                             removePath()
                             targetZoomForCenterCamera = 17
                             lastPosition?.let { setView(it) }
+                            isSliderVisible = false
 
                         }
                         3 -> {
                             removePath()
                             targetZoomForCenterCamera = 17
                             lastPosition?.let { setView(it) }
+                            isSliderVisible = true
                         }
                     }
                 }
@@ -194,10 +236,31 @@ class MainActivity
             }
         })
 
+        binding.slider.apply {
+            setOnStartTrackingListener { pos ->
+                var degree = (pos * 360).toInt()
+                if (degree == 360) degree = 0
+                compassFragment?.displayOrientationHint(degree)
+            }
+
+            setOnStopTrackingListener { pos ->
+                var degree = (pos * 360).toInt()
+                if (degree == 360) degree = 0
+                setSetting("compass", degree)
+                compassFragment?.hideOrientationHint()
+            }
+
+            setOnSliderMovedListener {
+                var degree = (it * 360).toInt()
+                if (degree == 360) degree = 0
+                else if (degree < 0) degree += 360
+                compassFragment?.displayOrientationHint(degree)
+            }
+        }
+
         createScanningDialog()
 
         configureMap(savedInstanceState)
-
     }
 
     override fun onPause() {
@@ -447,6 +510,9 @@ class MainActivity
         }
     }
 
+    override fun updateCompassOrientation(degree: Int) {
+        binding.slider.setPosition(degree / 360.0)
+    }
 
     private suspend fun getFromServer(path: String) : String?{
         return try {

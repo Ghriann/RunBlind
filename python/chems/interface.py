@@ -35,7 +35,7 @@ def set_volume(val):
     
 @app.route('/get_settings')
 def get_settings():
-    return '1,0,2,0,0,1,25,1,1,1,0,0,1'
+    return '1,0,2,0,0,1,25,1,1,1,0,0,240'
 
 @app.route('/set_setting/<key>/<value>')
 def set_setting(key, value):

@@ -46,6 +46,7 @@ class SettingsFragment(val callback : SettingsFragmentCallback, private val circ
         suspend fun getCircuitPath(index: Int)
         fun setMapStyle(styleKey: String)
         fun calibrate()
+        fun updateCompassOrientation(degree : Int)
     }
 
     private fun Boolean.toInt() = if (this) 1 else 0
@@ -220,6 +221,7 @@ class SettingsFragment(val callback : SettingsFragmentCallback, private val circ
             tasServiceSwitch.setWithNextBool(iter)
             gnssServiceSwitch.setWithNextBool(iter)
             imuServiceSwitch.setWithNextBool(iter)
+            callback.updateCompassOrientation(iter.next().toInt())
         }
         settingsEnabled = true
     }
